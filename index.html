@@ -8,11 +8,18 @@
 </head>
 <body>
 	<div>
-		<input type="button" value="mark">
-		<input type="button" value="line">
-		<input type="button" value="resistor">
+		<input type="button" value="mark" onclick="changeComponent('mark')">
+		<input type="button" value="line" onclick="changeComponent('line')">
+		<input type="button" value="resistor" onclick="changeComponent('resistor')">
+		<input type="button" value="capacitator" onclick="changeComponent('capacitator')">
 	</div>
 	<canvas id="canvas"></canvas>
+	<br>
+	<div>
+		<input type="button" value="rotate" onclick="rotate()">
+		<input type="button" value="delete" onclick="del()">
+	</div>
+	<canvas id="info"></canvas>
 	<script type="text/javascript" src="script.js"></script>
 </body>
 </html>
