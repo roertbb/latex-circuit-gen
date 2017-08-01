@@ -11,7 +11,8 @@ let canvas = document.querySelector("canvas"),
 	isDragging = false, //flag, if any object is dragged
 	dragHandle = undefined, // indicating dragged object(s)
 	cursor = undefined,
-	line = undefined;
+	line = undefined,
+	basic_rotate = false;
 
 	info.width = 660, info.height = 80;
 
@@ -35,7 +36,7 @@ class Line {
 }
 
 function drawResistor(x, y, direction) {
-	let xs = [0, tile/2, tile/2, 1.5*tile, 1.5*tile, tile/2, tile/2, 1.5*tile, 2*tile],
+	let xs = [-tile, -tile/2, -tile/2, 0.5*tile, 0.5*tile, -tile/2, -tile/2, 0.5*tile, tile],
 		ys = [0, 0, -0.25*tile, -0.25*tile, 0.25*tile, 0.25*tile, 0, 0, 0];
 
 	if (direction === "up" || direction === "down") {
@@ -61,7 +62,7 @@ function drawResistor(x, y, direction) {
 }
 
 function drawCapacitator(x, y, direction) {
-	let xs = [0,0.75*tile,0.75*tile,0.75*tile,1.25*tile,1.25*tile,1.25*tile,2*tile],
+	let xs = [-tile,-0.25*tile,-0.25*tile,-0.25*tile,0.25*tile,0.25*tile,0.25*tile,tile],
 		ys = [0,0,-0.35*tile,0.35*tile,-0.35*tile,0.35*tile,0,0];
 
 	if (direction === "up" || direction === "down") {
@@ -112,8 +113,8 @@ function draw() {
 	if (dragHandle !== undefined) {
 		ctx.fillStyle = "#345";
 		let border = dragHandle.direction === "left" || dragHandle.direction === "right" ? 
-			{x1:dragHandle.x,y1:dragHandle.y-0.33*tile,x2:dragHandle.x+2*tile,y2:dragHandle.y+0.33*tile}:
-			{x1:dragHandle.x-0.33*tile,y1:dragHandle.y,x2:dragHandle.x+0.33*tile,y2:dragHandle.y+2*tile};
+			{x1:dragHandle.x-tile,y1:dragHandle.y-0.33*tile,x2:dragHandle.x+tile,y2:dragHandle.y+0.33*tile}:
+			{x1:dragHandle.x-0.33*tile,y1:dragHandle.y-tile,x2:dragHandle.x+0.33*tile,y2:dragHandle.y+tile};
 		ctx.fillRect(border.x1,border.y1,border.x2-border.x1,border.y2-border.y1);
 	}
 
@@ -134,8 +135,9 @@ function draw() {
 	if (line !== undefined && component === "line") {
 		ctx.strokeStyle = "#000";
 		ctx.beginPath();
-		ctx.moveTo(line.x1,line.y1);
-		ctx.lineTo(cursor.x,cursor.y);
+		ctx.moveTo(line.x,line.y);
+		ctx.lineTo(basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y);
+		ctx.lineTo(cursor.x-tile,cursor.y);
 		ctx.stroke();	
 	}
 
@@ -146,7 +148,7 @@ function draw() {
 			drawCapacitator(cursor.x,cursor.y,cursor.direction);
 		else if (cursor.type === "line") {
 			ctx.fillStyle = "#000";
-			ctx.fillRect(cursor.x-4,cursor.y-4,8,8);
+			ctx.fillRect(cursor.x-tile-4,cursor.y-4,8,8);
 		}
 	}
 
@@ -173,8 +175,8 @@ canvas.addEventListener("mousedown", event => {
 			elements.forEach(element => {
 
 				let border = element.direction === "left" || element.direction === "right" ? 
-					{x1:element.x,y1:element.y-0.33*tile,x2:element.x+2*tile,y2:element.y+0.33*tile}:
-					{x1:element.x-0.33*tile,y1:element.y,x2:element.x+0.33*tile,y2:element.y+2*tile};
+					{x1:element.x-tile,y1:element.y-0.33*tile,x2:element.x+tile,y2:element.y+0.33*tile}:
+					{x1:element.x-0.33*tile,y1:element.y-tile,x2:element.x+0.33*tile,y2:element.y+tile};
 
 				if (mouse.x >= border.x1 && mouse.x <= border.x2 && mouse.y >= border.y1 && mouse.y <= border.y2) {
 					isDragging = true;
@@ -191,39 +193,70 @@ canvas.addEventListener("mousedown", event => {
 			});
 		}
 		else if (!isDragging && component !== "mark" && component !== "line") {
-			let e = new Entity(Math.floor((mouse.x-tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,"left",component);
+			let e = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,cursor.direction,component);
 			elements.push(e);
 			draw();
 		}
 		else if (component === "line") {
 			if (line === undefined) {
-				line = {x1: Math.floor((mouse.x+tile/2)/tile)*tile, y1: Math.floor((mouse.y+tile/2)/tile)*tile};
-				canvas.addEventListener("mousemove", drawLine);
+				line = {x: Math.floor((mouse.x+0.5*tile)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
+				// canvas.addEventListener("mousemove", drawLine);
 			}
 			else {
-				let l = new Line(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,line.x1,line.y1);
-				elements.push(l);
-				line = undefined;
-				canvas.removeEventListener("mousemove", drawLine);
+				if (cursor.x === line.x || cursor.y === line.y) {
+					let l = new Line(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,line.x,line.y);
+					elements.push(l);
+					line = undefined;
+				}
+				else {
+					let l1 = new Line(line.x,line.y,basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y),
+						l2 = new Line(basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y,cursor.x-tile,cursor.y);
+					elements.push(l1);
+					elements.push(l2);
+					line = undefined;
+				}
+				// canvas.removeEventListener("mousemove", drawLine);
 			}
 		}
 	}
 });
 
 canvas.addEventListener("mousemove", tempIcon);
-canvas.addEventListener("mousemove", drawLine);
+// canvas.addEventListener("mousemove", drawLine);
+
+canvas.addEventListener("wheel", event => { 
+	basic_rotate=!basic_rotate; 
+	let obj = [dragHandle, cursor];
+	obj.forEach(o => {
+		if (o !== undefined) {
+			if (o.direction === "left") 
+				o.direction = "up";
+			else if (o.direction === "up")
+				o.direction = "right";
+			else if (o.direction === "right")
+				o.direction = "down";
+			else
+				o.direction = "left";
+
+			o.horizontal = (o.direction === "left" || o.direction === "right")?true:false;
+		}
+	})
+
+	
+	// draw();
+})
 
 function drawLine(event) {
-	let mouse = getMouse(event);
+	// let mouse = getMouse(event);
 	// line.mousex = Math.floor((mouse.x+tile/2)/tile)*tile;
 	// line.mousey = Math.floor((mouse.y+tile/2)/tile)*tile;
-	draw();
+	// draw();
 }
 
 function onMouseMove(event) {
 	let mouse = getMouse(event);
-	dragHandle.x = Math.floor((mouse.x+(dragHandle.horizontal?-tile/2:tile/2)/* - offset.x*/)/tile)*tile;
-	dragHandle.y = Math.floor((mouse.y+(dragHandle.horizontal?tile/2:-tile/2)/* - offset.y*/)/tile)*tile;
+	dragHandle.x = Math.floor((mouse.x+(dragHandle.horizontal?tile/2:tile/2)/* - offset.x*/)/tile)*tile;
+	dragHandle.y = Math.floor((mouse.y+(dragHandle.horizontal?tile/2:tile/2)/* - offset.y*/)/tile)*tile;
 	draw(); // to get/get rid of outline
 }
 
@@ -238,7 +271,7 @@ function onMouseUp(event) {
 function tempIcon(event) {
 	let mouse = getMouse(event);
 	if (component !== "mark") {
-		cursor = new Entity(Math.floor((mouse.x-tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,"left",component)
+		cursor = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,basic_rotate?"left":"up",component)
 		if (cursor.type === "line") {
 			cursor.x += tile;
 		}
@@ -300,10 +333,12 @@ function debug(obj) {
 	ctx.font = '14px arial';
 	let x = 10, y = 10;
 	for (o in obj) {
-		ictx.fillText(o+":"+obj[o],x,y);
-		y+=20;
-		if (y>=90) {
-			y = 10, x+=150;
+		if (obj[o]!==undefined) {
+			ictx.fillText(o+":"+obj[o],x,y);
+			y+=20;
+			if (y>=90) {
+				y = 10, x+=150;
+			}
 		}
 	}
 }
