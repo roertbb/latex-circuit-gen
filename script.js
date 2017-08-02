@@ -23,19 +23,21 @@ class Entity {
 		this.direction = direction;
 		this.type = type;
 		this.horizontal = (direction === "left" || direction === "right")?true:false;
+		this.label = type==="capacitator"?"C":type==="resistor"?"R":"dunno";
+		this.flipLabel = false;
 	}
 }
 
 class Line {
 	constructor(x1,y1,x2,y2) {
-		this.x1 = x1;
-		this.y1 = y1;
-		this.x2 = x2;
-		this.y2 = y2;
+		this.x = x1<=x2?x1:x2;
+		this.y = y1<=y2?y1:y2;
+		this.len = x1===x2?Math.abs(y2-y1):Math.abs(x2-x1);
+		this.horizontal = (/*x1 === x2 || */y1 === y2);
 	}
 }
 
-function drawResistor(x, y, direction) {
+function drawResistor(x, y, direction, label, flip) {
 	let xs = [-tile, -tile/2, -tile/2, 0.5*tile, 0.5*tile, -tile/2, -tile/2, 0.5*tile, tile],
 		ys = [0, 0, -0.25*tile, -0.25*tile, 0.25*tile, 0.25*tile, 0, 0, 0];
 
@@ -47,7 +49,6 @@ function drawResistor(x, y, direction) {
 	// 	ys = ys.map(cord => 2*tile-cord);
 	// }
 
-	ctx.strokeStyle = "#000";
 	ctx.beginPath();
 	ctx.moveTo(x+xs[0], y+ys[0]);
 	ctx.lineTo(x+xs[1], y+ys[1]);
@@ -59,9 +60,20 @@ function drawResistor(x, y, direction) {
 	ctx.moveTo(x+xs[7], y+ys[7]);
 	ctx.lineTo(x+xs[8], y+ys[8]);
 	ctx.stroke();
+
+	let label_x, label_y;
+	if (flip) {
+		label_x = x + (direction==="up"?-tile/2*(1+label.length/2):direction==="down"?tile/2:-tile/4*label.length/2),
+		label_y = y + (direction==="left"?-tile/2:direction==="right"?0.75*tile:tile/6);	
+	}
+	else {
+		label_x = x + (direction==="up"?tile/2:direction==="down"?-tile/2*(1+label.length/2):-tile/4*label.length/2),
+		label_y = y + (direction==="left"?0.75*tile:direction==="right"?-tile/2:tile/6);
+	}
+	ctx.fillText(label,label_x,label_y);
 }
 
-function drawCapacitator(x, y, direction) {
+function drawCapacitator(x, y, direction, label, flip) {
 	let xs = [-tile,-0.25*tile,-0.25*tile,-0.25*tile,0.25*tile,0.25*tile,0.25*tile,tile],
 		ys = [0,0,-0.35*tile,0.35*tile,-0.35*tile,0.35*tile,0,0];
 
@@ -73,7 +85,6 @@ function drawCapacitator(x, y, direction) {
 	// 	ys = ys.map(cord => 2*tile-cord);
 	// }
 
-	ctx.strokeStyle = "#000";
 	ctx.beginPath();
 	ctx.moveTo(x+xs[0],y+ys[0]);
 	ctx.lineTo(x+xs[1],y+ys[1]);
@@ -84,6 +95,18 @@ function drawCapacitator(x, y, direction) {
 	ctx.moveTo(x+xs[6],y+ys[6]);
 	ctx.lineTo(x+xs[7],y+ys[7]);
 	ctx.stroke();
+
+	let label_x, label_y;
+	if (flip) {
+		label_x = x + (direction==="up"?-tile/2*(1+label.length/2):direction==="down"?tile/2:-tile/4*label.length/2),
+		label_y = y + (direction==="left"?-tile/2:direction==="right"?0.75*tile:tile/6);	
+	}
+	else {
+		label_x = x + (direction==="up"?tile/2:direction==="down"?-tile/2*(1+label.length/2):-tile/4*label.length/2),
+		label_y = y + (direction==="left"?0.75*tile:direction==="right"?-tile/2:tile/6);
+	}
+	
+	ctx.fillText(label,label_x,label_y);
 }
 
 function draw() {
@@ -111,27 +134,51 @@ function draw() {
 
 	//draw outline to clicked/draggable object
 	if (dragHandle !== undefined) {
-		ctx.fillStyle = "#345";
-		let border = dragHandle.direction === "left" || dragHandle.direction === "right" ? 
-			{x1:dragHandle.x-tile,y1:dragHandle.y-0.33*tile,x2:dragHandle.x+tile,y2:dragHandle.y+0.33*tile}:
-			{x1:dragHandle.x-0.33*tile,y1:dragHandle.y-tile,x2:dragHandle.x+0.33*tile,y2:dragHandle.y+tile};
-		ctx.fillRect(border.x1,border.y1,border.x2-border.x1,border.y2-border.y1);
+		
+		ctx.strokeStyle = "#345";
+		ctx.lineWidth = 7;
+		if (dragHandle.type === "resistor") {
+			drawResistor(dragHandle.x,dragHandle.y,dragHandle.direction,dragHandle.label);
+		}
+		else {
+			ctx.fillStyle = "#345";
+			let border;
+			if (dragHandle instanceof Line) {
+				border = dragHandle.horizontal?
+					{x1:dragHandle.x,y1:dragHandle.y-5,x2:dragHandle.x+dragHandle.len,y2:dragHandle.y+5}:
+					{x1:dragHandle.x-5,y1:dragHandle.y,x2:dragHandle.x+5,y2:dragHandle.y+dragHandle.len};
+			}
+			else {
+				border = dragHandle.horizontal? 
+					{x1:dragHandle.x-tile,y1:dragHandle.y-0.33*tile,x2:dragHandle.x+tile,y2:dragHandle.y+0.33*tile}:
+					{x1:dragHandle.x-0.33*tile,y1:dragHandle.y-tile,x2:dragHandle.x+0.33*tile,y2:dragHandle.y+tile};
+			}
+			ctx.fillRect(border.x1,border.y1,border.x2-border.x1,border.y2-border.y1);
+		}
+		ctx.lineWidth = 1;
 	}
 
+	//drawing elements and their labels
+	ctx.fillStyle = "#000";
+	ctx.strokeStyle = "#000";
+	ctx.font="16px Arial";
 	elements.forEach(element => {
 		if (element.type === "capacitator")
-			drawCapacitator(element.x, element.y, element.direction);
+			drawCapacitator(element.x, element.y, element.direction, element.label, element.flipLabel);
 		else if (element.type === "resistor")
-			drawResistor(element.x, element.y, element.direction);
+			drawResistor(element.x, element.y, element.direction, element.label, element.flipLabel);
 		else if (element instanceof Line) {
-			ctx.strokeStyle = "#000";
 			ctx.beginPath();
-			ctx.moveTo(element.x1,element.y1);
-			ctx.lineTo(element.x2,element.y2);
+			ctx.moveTo(element.x,element.y);
+			if (element.horizontal)
+				ctx.lineTo(element.x+element.len,element.y);
+			else
+				ctx.lineTo(element.x,element.y+element.len);
 			ctx.stroke();
 		}
 	});
 
+	//drawing temporary components like line and cursor
 	if (line !== undefined && component === "line") {
 		ctx.strokeStyle = "#000";
 		ctx.beginPath();
@@ -143,23 +190,26 @@ function draw() {
 
 	if (cursor!==undefined) {
 		if (cursor.type === "resistor")
-			drawResistor(cursor.x,cursor.y,cursor.direction);
+			drawResistor(cursor.x,cursor.y,cursor.direction,"R");
 		else if (cursor.type === "capacitator")
-			drawCapacitator(cursor.x,cursor.y,cursor.direction);
+			drawCapacitator(cursor.x,cursor.y,cursor.direction,"C");
 		else if (cursor.type === "line") {
 			ctx.fillStyle = "#000";
 			ctx.fillRect(cursor.x-tile-4,cursor.y-4,8,8);
 		}
 	}
 
+	//debugging
 	if (dragHandle != undefined) {
-		debug({"cur_component":component,"x":dragHandle.x,"y":dragHandle.y,"dir":dragHandle.direction,"horizontal":dragHandle.horizontal})
+		debug({"cur_component":component,"x":dragHandle.x,"y":dragHandle.y,"dir":dragHandle.direction,"horizontal":dragHandle.horizontal, "label":dragHandle.flipLabel})
 	}
 }
 
 canvas.addEventListener("contextmenu", (event) => {
 	event.preventDefault();
-	component = "mark";
+	if (line === undefined) {
+		component = "mark";
+	}
 	dragHandle = undefined;
 	cursor = undefined;
 	line = undefined;
@@ -174,9 +224,17 @@ canvas.addEventListener("mousedown", event => {
 		if (component === "mark") {
 			elements.forEach(element => {
 
-				let border = element.direction === "left" || element.direction === "right" ? 
+				let border;
+				if (element instanceof Line) {
+					border = element.horizontal?
+					{x1:element.x, y1:element.y-5, x2:element.x+element.len, y2:element.y+5}:
+					{x1:element.x-5, y1:element.y, x2:element.x+5, y2:element.y+element.len};
+				}
+				else {
+					border = element.horizontal? 
 					{x1:element.x-tile,y1:element.y-0.33*tile,x2:element.x+tile,y2:element.y+0.33*tile}:
 					{x1:element.x-0.33*tile,y1:element.y-tile,x2:element.x+0.33*tile,y2:element.y+tile};
+				}
 
 				if (mouse.x >= border.x1 && mouse.x <= border.x2 && mouse.y >= border.y1 && mouse.y <= border.y2) {
 					isDragging = true;
@@ -188,6 +246,7 @@ canvas.addEventListener("mousedown", event => {
 					// dragHandle.push(element);
 					offset.x = mouse.x - element.x;
 					offset.y = mouse.y - element.y;
+					document.getElementById("label_field").value = dragHandle.label;
 					draw();
 				}
 			});
@@ -200,10 +259,9 @@ canvas.addEventListener("mousedown", event => {
 		else if (component === "line") {
 			if (line === undefined) {
 				line = {x: Math.floor((mouse.x+0.5*tile)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
-				// canvas.addEventListener("mousemove", drawLine);
 			}
 			else {
-				if (cursor.x === line.x || cursor.y === line.y) {
+				if (cursor.x-tile === line.x || cursor.y === line.y) {
 					let l = new Line(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,line.x,line.y);
 					elements.push(l);
 					line = undefined;
@@ -215,14 +273,12 @@ canvas.addEventListener("mousedown", event => {
 					elements.push(l2);
 					line = undefined;
 				}
-				// canvas.removeEventListener("mousemove", drawLine);
 			}
 		}
 	}
 });
 
 canvas.addEventListener("mousemove", tempIcon);
-// canvas.addEventListener("mousemove", drawLine);
 
 canvas.addEventListener("wheel", event => { 
 	basic_rotate=!basic_rotate; 
@@ -240,23 +296,13 @@ canvas.addEventListener("wheel", event => {
 
 			o.horizontal = (o.direction === "left" || o.direction === "right")?true:false;
 		}
-	})
-
-	
-	// draw();
+	})	
 })
-
-function drawLine(event) {
-	// let mouse = getMouse(event);
-	// line.mousex = Math.floor((mouse.x+tile/2)/tile)*tile;
-	// line.mousey = Math.floor((mouse.y+tile/2)/tile)*tile;
-	// draw();
-}
 
 function onMouseMove(event) {
 	let mouse = getMouse(event);
-	dragHandle.x = Math.floor((mouse.x+(dragHandle.horizontal?tile/2:tile/2)/* - offset.x*/)/tile)*tile;
-	dragHandle.y = Math.floor((mouse.y+(dragHandle.horizontal?tile/2:tile/2)/* - offset.y*/)/tile)*tile;
+	dragHandle.x = Math.floor((mouse.x+(dragHandle.horizontal?tile/2:tile/2) - offset.x)/tile)*tile;
+	dragHandle.y = Math.floor((mouse.y+(dragHandle.horizontal?tile/2:tile/2) - offset.y)/tile)*tile;
 	draw(); // to get/get rid of outline
 }
 
@@ -297,29 +343,19 @@ function changeComponent(arg) {
 
 function del() {
 	elements.splice(elements.indexOf(dragHandle),1);
+	delete dragHandle;
+	dragHandle = undefined;
 	draw();
 }
 
-function rotate() {
-	if (dragHandle.direction === "left") 
-		dragHandle.direction = "up";
-	else if (dragHandle.direction === "up")
-		dragHandle.direction = "right";
-	else if (dragHandle.direction === "right")
-		dragHandle.direction = "down";
-	else
-		dragHandle.direction = "left";
+function setLabel() {
+	dragHandle.label = document.getElementById("label_field").value;
+	draw();
+}
 
-	dragHandle.horizontal = (dragHandle.direction === "left" || dragHandle.direction === "right")?true:false;
-
-	if (dragHandle.horizontal) {
-		dragHandle.x-=tile;
-		dragHandle.y+=tile;
-	}
-	else {
-		dragHandle.x+=tile;
-		dragHandle.y-=tile;
-	}
+function flipLabel() {
+	dragHandle.flipLabel = !dragHandle.flipLabel;
+	draw();
 }
 
 function update() {
