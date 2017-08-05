@@ -39,12 +39,22 @@ class Entity {
 }
 
 class Line {
-	constructor(x1,y1,x2,y2) {
-		this.type = "line";
+	constructor(x1,y1,x2,y2,type) {
+		this.type = type;
+		this.direction;
 		this.x = x1<=x2?x1:x2;
 		this.y = y1<=y2?y1:y2;
 		this.len = x1===x2?Math.abs(y2-y1):Math.abs(x2-x1);
 		this.horizontal = (/*x1 === x2 || */y1 === y2);
+		if (x1<x2)
+			this.direction = "right";
+		else if (x2<x1)
+			this.direction = "left";
+		if (y1<y2)
+			this.direction = "up";
+		else if (y2<y1)
+			this.direction = "down";
+		this.label = type === "current"?"I":"";
 	}
 }
 
@@ -72,7 +82,7 @@ function drawResistor(e) {
 	ctx.lineTo(e.x+xs[8], e.y+ys[8]);
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawInductor(e) {
@@ -107,7 +117,7 @@ function drawInductor(e) {
 	ctx.lineTo(e.x+xs[6],e.y+ys[6]);
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawDiode(e) {
@@ -135,7 +145,7 @@ function drawDiode(e) {
 	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawLed(e) {
@@ -176,7 +186,7 @@ function drawLed(e) {
 
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawCapacitator(e) {
@@ -198,7 +208,7 @@ function drawCapacitator(e) {
 	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawSource(e) {
@@ -227,7 +237,7 @@ function drawSource(e) {
 	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawSine(e) {
@@ -264,7 +274,7 @@ function drawSine(e) {
 	}
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawVoltmeter(e) {
@@ -302,7 +312,7 @@ function drawVoltmeter(e) {
 	ctx.lineTo(e.x+xs[11],e.y+ys[11]);
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawAmmeter(e) {
@@ -342,7 +352,7 @@ function drawAmmeter(e) {
 	ctx.lineTo(e.x+xs[13],e.y+ys[13]);
 	ctx.stroke();
 
-	drawLabel(e);
+	drawLabel(e,e.x,e.y);
 }
 
 function drawLine(e) {
@@ -355,15 +365,44 @@ function drawLine(e) {
 	ctx.stroke();
 }
 
-function drawLabel(e) {
+function drawCurrent(e) {
+	let xs = [e.len/2,e.len/2,e.len/2],
+		ys = [-tile/12,0,tile/12],
+		arrow = [-tile/12,tile/12,-tile/12]
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+	if (e.direction === "down" || e.direction === "left") {
+		arrow = arrow.map(cord => -cord);
+	}
+
+	ctx.beginPath();
+	ctx.moveTo(e.x,e.y);
+	if (e.horizontal)
+		ctx.lineTo(e.x+e.len,e.y);
+	else
+		ctx.lineTo(e.x,e.y+e.len);
+	ctx.moveTo(e.x+xs[0]+(e.horizontal?arrow[0]:0),e.y+ys[0]+(e.horizontal?0:arrow[0]));
+	ctx.lineTo(e.x+xs[1]+(e.horizontal?arrow[1]:0),e.y+ys[1]+(e.horizontal?0:arrow[1]));
+	ctx.lineTo(e.x+xs[2]+(e.horizontal?arrow[2]:0),e.y+ys[2]+(e.horizontal?0:arrow[2]));
+	ctx.stroke();
+
+	if (e.horizontal)
+		drawLabel(e,e.x+e.len/2,e.y);
+	else
+		drawLabel(e,e.x,e.y+e.len/2);
+}
+
+function drawLabel(e,x,y) {
 	let label_x, label_y;
 	if (e.flipLabel) {
-		label_x = e.x + (e.direction==="up"?-2*tile/3*(1+e.label.length/2):e.direction==="down"?2*tile/3:-tile/4*e.label.length/2),
-		label_y = e.y + (e.direction==="left"?-2*tile/3:e.direction==="right"?tile:tile/6);	
+		label_x = x + (e.direction==="up"?-2*tile/3*(e.label.length/2):e.direction==="down"?2*tile/3:-tile/4*e.label.length/2),
+		label_y = y + (e.direction==="left"?-2*tile/3:e.direction==="right"?tile:tile/6);	
 	}
 	else {
-		label_x = e.x + (e.direction==="up"?2*tile/3:e.direction==="down"?-2*tile/3*(1+e.label.length/3):-tile/4*e.label.length/2),
-		label_y = e.y + (e.direction==="left"?tile:e.direction==="right"?-2*tile/3:tile/6);
+		label_x = x + (e.direction==="up"?2*tile/3:e.direction==="down"?-2*tile/3*(1+e.label.length/3):-tile/4*e.label.length/2),
+		label_y = y + (e.direction==="left"?tile:e.direction==="right"?-2*tile/3:tile/6);
 	}
 	
 	ctx.fillText(e.label,label_x,label_y);
@@ -373,6 +412,8 @@ function drawLabel(e) {
 // -transistor
 // -opamp
 // -current=line
+// -node with text/some label
+// -white and black points
 
 function draw() {
 	ctx.clearRect(0,0,width,height);
@@ -403,7 +444,8 @@ function draw() {
 		source: function(e) { drawSource(e); },
 		sine: function(e) { drawSine(e); },
 		voltmeter: function(e) { drawVoltmeter(e); },
-		ammeter: function(e) { drawAmmeter(e); }
+		ammeter: function(e) { drawAmmeter(e); },
+		current: function(e) { drawCurrent(e); }
 	}
 
 	//draw outline to clicked/draggable object
@@ -423,18 +465,18 @@ function draw() {
 	});
 
 	//drawing temporary components like line and cursor
-	if (line !== undefined && component === "line") {
-		ctx.strokeStyle = "#000";
+	if (line !== undefined) {
+		ctx.strokeStyle = (component==="current"?"#388":"#000");
 		ctx.beginPath();
 		ctx.moveTo(line.x,line.y);
 		ctx.lineTo(basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y);
 		ctx.lineTo(cursor.x-tile,cursor.y);
-		ctx.stroke();	
+		ctx.stroke();
 	}
 
 	//drawing temporary component as cursor
 	if (cursor!==undefined) {
-		if (cursor.type === "line") {
+		if (cursor.type === "line" || cursor.type === "current") {
 			ctx.fillStyle = "#000";
 			ctx.fillRect(cursor.x-tile-4,cursor.y-4,8,8);
 		}
@@ -467,7 +509,6 @@ canvas.addEventListener("mousedown", event => {
 
 		if (component === "mark") {
 			elements.forEach(element => {
-
 				let border;
 				if (element instanceof Line) {
 					border = element.horizontal?
@@ -487,32 +528,35 @@ canvas.addEventListener("mousedown", event => {
 					cursor = undefined
 					canvas.addEventListener("mousemove", onMouseMove);
 					canvas.addEventListener("mouseup", onMouseUp);
-					// dragHandle.push(element);
 					offset.x = mouse.x - element.x;
 					offset.y = mouse.y - element.y;
 					document.getElementById("label_field").value = dragHandle.label;
 					draw();
 				}
 			});
+			if (dragHandle === undefined) {
+				console.log("dunno");
+				//here to mark more than one item
+			}
 		}
-		else if (!isDragging && component !== "mark" && component !== "line") {
+		else if (!isDragging && component !== "mark" && component !== "line" && component !== "current") {
 			let e = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,cursor.direction,component);
 			elements.push(e);
 			draw();
 		}
-		else if (component === "line") {
+		else if (component === "line" || component === "current") {
 			if (line === undefined) {
 				line = {x: Math.floor((mouse.x+0.5*tile)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
 			}
 			else {
 				if (cursor.x-tile === line.x || cursor.y === line.y) {
-					let l = new Line(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,line.x,line.y);
+					let l = new Line(line.x,line.y,Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,component);
 					elements.push(l);
 					line = undefined;
 				}
 				else {
-					let l1 = new Line(line.x,line.y,basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y),
-						l2 = new Line(basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y,cursor.x-tile,cursor.y);
+					let l1 = new Line(line.x,line.y,basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y, component),
+						l2 = new Line(basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y,cursor.x-tile,cursor.y, component);
 					elements.push(l1);
 					elements.push(l2);
 					line = undefined;
@@ -547,7 +591,7 @@ function onMouseMove(event) {
 	let mouse = getMouse(event);
 	dragHandle.x = Math.floor((mouse.x+(dragHandle.horizontal?tile/2:tile/2) - offset.x)/tile)*tile;
 	dragHandle.y = Math.floor((mouse.y+(dragHandle.horizontal?tile/2:tile/2) - offset.y)/tile)*tile;
-	draw(); // to get/get rid of outline
+	draw();
 }
 
 function onMouseUp(event) {
@@ -555,14 +599,14 @@ function onMouseUp(event) {
 	canvas.removeEventListener("mouseup", onMouseUp);
 	canvas.addEventListener("mousemove", tempIcon);
 	isDragging = false;
-	draw(); // to get/get rid of outline
+	draw();
 }
 
 function tempIcon(event) {
 	let mouse = getMouse(event);
 	if (component !== "mark") {
 		cursor = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,basic_rotate?"left":"up",component)
-		if (cursor.type === "line") {
+		if (cursor.type === "line" || cursor.type === "current") {
 			cursor.x += tile;
 		}
 	}

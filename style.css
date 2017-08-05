@@ -8,3 +8,7 @@ div {
 	margin-bottom: 10px;
 	margin-top: 7px;
 }
+
+div > span {
+	margin-right: 50px;
+}
