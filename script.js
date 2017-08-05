@@ -2,8 +2,6 @@ let canvas = document.querySelector("canvas"),
 	ctx = canvas.getContext("2d"),
 	width = canvas.width = 660,
 	height = canvas.height = 480,
-	info = document.getElementById("info"),
-	ictx = info.getContext("2d"),
 	tile = 30,
 	component = "mark", //var indicationg which button has been pressed last time/action doing right now
 	elements = [],
@@ -14,8 +12,6 @@ let canvas = document.querySelector("canvas"),
 	line = undefined,
 	basic_rotate = false;
 
-	info.width = 660, info.height = 80;
-
 class Entity {
 	constructor(x, y, direction, type) {
 		this.x = x;
@@ -23,13 +19,28 @@ class Entity {
 		this.direction = direction;
 		this.type = type;
 		this.horizontal = (direction === "left" || direction === "right")?true:false;
-		this.label = type==="capacitator"?"C":type==="resistor"?"R":"dunno";
+		this.label;
+		if (type === "capacitator")
+			this.label = "C";
+		else if (type === "resistor")
+			this.label = "R";
+		else if (type === "diode" || type === "led")
+			this.label = "D";
+		else if (type === "inductor")
+			this.label = "L";
+		else if (type === "source" || type === "sine")
+			this.label = "V";
+		else if (type === "voltmeter" || type === "ammeter")
+			this.label = "";
+		else
+			this.label = "dunno";
 		this.flipLabel = false;
 	}
 }
 
 class Line {
 	constructor(x1,y1,x2,y2) {
+		this.type = "line";
 		this.x = x1<=x2?x1:x2;
 		this.y = y1<=y2?y1:y2;
 		this.len = x1===x2?Math.abs(y2-y1):Math.abs(x2-x1);
@@ -37,87 +48,337 @@ class Line {
 	}
 }
 
-function drawResistor(x, y, direction, label, flip) {
+function drawResistor(e) {
 	let xs = [-tile, -tile/2, -tile/2, 0.5*tile, 0.5*tile, -tile/2, -tile/2, 0.5*tile, tile],
 		ys = [0, 0, -0.25*tile, -0.25*tile, 0.25*tile, 0.25*tile, 0, 0, 0];
 
-	if (direction === "up" || direction === "down") {
+	if (e.direction === "up" || e.direction === "down") {
 		let temp = ys; ys = xs; xs = temp;
 	}
-	// if (direction === "left" || direction === "down") {
-	// 	xs = xs.map(cord => 2*tile-cord);
-	// 	ys = ys.map(cord => 2*tile-cord);
+	// if (e.direction === "left" || e.direction === "down") {
+	// 	xs = xs.map(cord => -cord);
+	// 	ys = ys.map(cord => -cord);
 	// }
 
 	ctx.beginPath();
-	ctx.moveTo(x+xs[0], y+ys[0]);
-	ctx.lineTo(x+xs[1], y+ys[1]);
-	ctx.lineTo(x+xs[2], y+ys[2]);
-	ctx.lineTo(x+xs[3], y+ys[3]);
-	ctx.lineTo(x+xs[4], y+ys[4]);
-	ctx.lineTo(x+xs[5], y+ys[5]);
-	ctx.lineTo(x+xs[6], y+ys[6]);
-	ctx.moveTo(x+xs[7], y+ys[7]);
-	ctx.lineTo(x+xs[8], y+ys[8]);
+	ctx.moveTo(e.x+xs[0], e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1], e.y+ys[1]);
+	ctx.lineTo(e.x+xs[2], e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3], e.y+ys[3]);
+	ctx.lineTo(e.x+xs[4], e.y+ys[4]);
+	ctx.lineTo(e.x+xs[5], e.y+ys[5]);
+	ctx.lineTo(e.x+xs[6], e.y+ys[6]);
+	ctx.moveTo(e.x+xs[7], e.y+ys[7]);
+	ctx.lineTo(e.x+xs[8], e.y+ys[8]);
 	ctx.stroke();
 
-	let label_x, label_y;
-	if (flip) {
-		label_x = x + (direction==="up"?-tile/2*(1+label.length/2):direction==="down"?tile/2:-tile/4*label.length/2),
-		label_y = y + (direction==="left"?-tile/2:direction==="right"?0.75*tile:tile/6);	
-	}
-	else {
-		label_x = x + (direction==="up"?tile/2:direction==="down"?-tile/2*(1+label.length/2):-tile/4*label.length/2),
-		label_y = y + (direction==="left"?0.75*tile:direction==="right"?-tile/2:tile/6);
-	}
-	ctx.fillText(label,label_x,label_y);
+	drawLabel(e);
 }
 
-function drawCapacitator(x, y, direction, label, flip) {
+function drawInductor(e) {
+	let xs = [-tile,-0.66*tile,-tile/3,0,tile/3,0.66*tile,tile],
+		ys = [0,0,0,0,0,0,0],
+		angle = [Math.PI,Math.PI/4,0.75*Math.PI,Math.PI/4,0.75*Math.PI,0]
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+	
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	if (e.direction === "down" || e.direction === "left") {
+		if (e.direction === "left") {
+			angle = angle.map( a => { return a-Math.PI/2 });	
+		}
+		ctx.arc(e.x+xs[2],e.y+ys[2],tile/3,angle[0]+Math.PI/2,angle[1],true);
+		ctx.arc(e.x+xs[3],e.y+ys[3],tile/3,angle[2]+Math.PI,angle[3],true);
+		ctx.arc(e.x+xs[4],e.y+ys[4],tile/3,angle[4]+Math.PI,angle[5]+Math.PI/2,true);
+	}
+	else {
+		if (e.direction === "up") {
+			angle = angle.map( a => { return a+Math.PI/2 });
+		}
+		ctx.arc(e.x+xs[2],e.y+ys[2],tile/3,angle[0],angle[1],false);
+		ctx.arc(e.x+xs[3],e.y+ys[3],tile/3,angle[2],angle[3],false);
+		ctx.arc(e.x+xs[4],e.y+ys[4],tile/3,angle[4],angle[5],false);	
+	}
+	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
+	ctx.lineTo(e.x+xs[6],e.y+ys[6]);
+	ctx.stroke();
+
+	drawLabel(e);
+}
+
+function drawDiode(e) {
+	let xs = [-tile,-0.33*tile,-0.33*tile,0.33*tile,-0.33*tile,-0.33*tile,0.33*tile,0.33*tile,0.33*tile,tile],
+		ys = [0,0,-0.33*tile,0,0.33*tile,0,-0.33*tile,0.33*tile,0,0];
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+	if (e.direction === "left" || e.direction === "down") {
+		xs = xs.map(cord => -cord);
+		ys = ys.map(cord => -cord);
+	}
+
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	ctx.lineTo(e.x+xs[2],e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
+	ctx.lineTo(e.x+xs[4],e.y+ys[4]);
+	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
+	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
+	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
+	ctx.moveTo(e.x+xs[8],e.y+ys[8]);
+	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
+	ctx.stroke();
+
+	drawLabel(e);
+}
+
+function drawLed(e) {
+	let xs = [-tile,-0.33*tile,-0.33*tile,0.33*tile,-0.33*tile,-0.33*tile,0.33*tile,0.33*tile,0.33*tile,tile,-tile/6,tile/6,0,tile/6,tile/6,tile/6,tile/2,tile/3,tile/2,tile/2],
+		ys = [0,0,-0.33*tile,0,0.33*tile,0,-0.33*tile,0.33*tile,0,0,-tile/2,-5*tile/6,-5*tile/6,-5*tile/6,-2*tile/3,-tile/2,-5*tile/6,-5*tile/6,-5*tile/6,-2*tile/3];
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+	if (e.direction === "left" || e.direction === "down") {
+		xs = xs.map(cord => -cord);
+		ys = ys.map(cord => -cord);
+	}
+
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	ctx.lineTo(e.x+xs[2],e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
+	ctx.lineTo(e.x+xs[4],e.y+ys[4]);
+	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
+	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
+	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
+	ctx.moveTo(e.x+xs[8],e.y+ys[8]);
+	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
+
+	ctx.moveTo(e.x+xs[10],e.y+ys[10]);
+	ctx.lineTo(e.x+xs[11],e.y+ys[11]);
+	ctx.lineTo(e.x+xs[12],e.y+ys[12]);
+	ctx.moveTo(e.x+xs[13],e.y+ys[13]);
+	ctx.lineTo(e.x+xs[14],e.y+ys[14]);
+
+	ctx.moveTo(e.x+xs[15],e.y+ys[15]);
+	ctx.lineTo(e.x+xs[16],e.y+ys[16]);
+	ctx.lineTo(e.x+xs[17],e.y+ys[17]);
+	ctx.moveTo(e.x+xs[18],e.y+ys[18]);
+	ctx.lineTo(e.x+xs[19],e.y+ys[19]);
+
+	ctx.stroke();
+
+	drawLabel(e);
+}
+
+function drawCapacitator(e) {
 	let xs = [-tile,-0.25*tile,-0.25*tile,-0.25*tile,0.25*tile,0.25*tile,0.25*tile,tile],
 		ys = [0,0,-0.35*tile,0.35*tile,-0.35*tile,0.35*tile,0,0];
 
-	if (direction === "up" || direction === "down") {
+	if (e.direction === "up" || e.direction === "down") {
 		let temp = ys; ys = xs; xs = temp;
 	}
-	// if (direction === "left" || direction === "down") {
-	// 	xs = xs.map(cord => 2*tile-cord);
-	// 	ys = ys.map(cord => 2*tile-cord);
-	// }
 
 	ctx.beginPath();
-	ctx.moveTo(x+xs[0],y+ys[0]);
-	ctx.lineTo(x+xs[1],y+ys[1]);
-	ctx.moveTo(x+xs[2],y+ys[2]);
-	ctx.lineTo(x+xs[3],y+ys[3]);
-	ctx.moveTo(x+xs[4],y+ys[4]);
-	ctx.lineTo(x+xs[5],y+ys[5]);
-	ctx.moveTo(x+xs[6],y+ys[6]);
-	ctx.lineTo(x+xs[7],y+ys[7]);
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
+	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
+	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
+	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
+	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
 	ctx.stroke();
 
-	let label_x, label_y;
-	if (flip) {
-		label_x = x + (direction==="up"?-tile/2*(1+label.length/2):direction==="down"?tile/2:-tile/4*label.length/2),
-		label_y = y + (direction==="left"?-tile/2:direction==="right"?0.75*tile:tile/6);	
+	drawLabel(e);
+}
+
+function drawSource(e) {
+	let xs = [-tile,-tile/2,tile/2,tile,-tile/4,-tile/4,tile/5,tile/5,tile/12,tile/3],
+		ys = [0,0,0,0,-tile/6,tile/6,-tile/6,tile/6,0,0];
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
+	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
+	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
+	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
+	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
+	ctx.moveTo(e.x+xs[8],e.y+ys[8]);
+	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
+	ctx.stroke();
+
+	drawLabel(e);
+}
+
+function drawSine(e) {
+	let xs = [-tile,-tile/2,tile/2,tile,0,0],
+		ys = [0,0,0,0,-tile/6,tile/6];
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
+	ctx.stroke();
+
+	let angle = [Math.PI,0,Math.PI,2*Math.PI];
+
+	ctx.beginPath();
+	if (e.direction === "left" || e.direction === "right") {
+		angle = angle.map( a => {	return a-Math.PI/2; });
+		ctx.arc(e.x+xs[5],e.y+ys[5],tile/6,angle[2],angle[3],false);
+		ctx.arc(e.x+xs[4],e.y+ys[4],tile/6,angle[0],angle[1],true);
 	}
 	else {
-		label_x = x + (direction==="up"?tile/2:direction==="down"?-tile/2*(1+label.length/2):-tile/4*label.length/2),
-		label_y = y + (direction==="left"?0.75*tile:direction==="right"?-tile/2:tile/6);
+		ctx.arc(e.x+xs[4],e.y+ys[4],tile/6,angle[0],angle[1],false);
+		ctx.arc(e.x+xs[5],e.y+ys[5],tile/6,angle[2],angle[3],true);
+	}
+	ctx.stroke();
+
+	drawLabel(e);
+}
+
+function drawVoltmeter(e) {
+	let xs = [-tile,-tile/2,tile/2,tile,-tile/6,0,tile/6,-tile/2,tile/2,tile/3,tile/2,tile/2],
+		ys = [0,0,0,0,-tile/6,tile/6,-tile/6,tile/2,-tile/2,-tile/2,-tile/2,-tile/3];
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+
+	if (e.direction === "left" || e.direction === "down") {
+		xs = xs.map(cord => -cord);
+		ys = ys.map(cord => -cord);
+	}
+	if (e.direction === "up" || e.direction === "down") 
+		ys = ys.map(cord => -cord);
+
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
+	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
+	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
+	ctx.lineTo(e.x+xs[6],e.y+ys[6]);
+	ctx.moveTo(e.x+xs[7],e.y+ys[7]);
+	ctx.lineTo(e.x+xs[8],e.y+ys[8]);
+	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
+	ctx.moveTo(e.x+xs[10],e.y+ys[10]);
+	ctx.lineTo(e.x+xs[11],e.y+ys[11]);
+	ctx.stroke();
+
+	drawLabel(e);
+}
+
+function drawAmmeter(e) {
+	let xs = [-tile,-tile/2,tile/2,tile,tile/6,0,-tile/6,-tile/12,tile/12,-tile/2,tile/2,tile/3,tile/2,tile/2],
+		ys = [0,0,0,0,tile/6,-tile/6,tile/6,tile/12,tile/12,tile/2,-tile/2,-tile/2,-tile/2,-tile/3];
+
+	if (e.direction === "up" || e.direction === "down") {
+		let temp = ys; ys = xs; xs = temp;
+	}
+
+	if (e.direction === "left" || e.direction === "down") {
+		xs = xs.map(cord => -cord);
+		ys = ys.map(cord => -cord);
+	}
+	if (e.direction === "up" || e.direction === "down") 
+		ys = ys.map(cord => -cord);
+
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
+	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
+	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
+	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
+	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
+	ctx.lineTo(e.x+xs[6],e.y+ys[6]);
+	ctx.moveTo(e.x+xs[7],e.y+ys[7]);
+	ctx.lineTo(e.x+xs[8],e.y+ys[8]);
+	ctx.moveTo(e.x+xs[9],e.y+ys[9]);
+	ctx.lineTo(e.x+xs[10],e.y+ys[10]);
+	ctx.lineTo(e.x+xs[11],e.y+ys[11]);
+	ctx.moveTo(e.x+xs[12],e.y+ys[12]);
+	ctx.lineTo(e.x+xs[13],e.y+ys[13]);
+	ctx.stroke();
+
+	drawLabel(e);
+}
+
+function drawLine(e) {
+	ctx.beginPath();
+	ctx.moveTo(e.x,e.y);
+	if (e.horizontal)
+		ctx.lineTo(e.x+e.len,e.y);
+	else
+		ctx.lineTo(e.x,e.y+e.len);
+	ctx.stroke();
+}
+
+function drawLabel(e) {
+	let label_x, label_y;
+	if (e.flipLabel) {
+		label_x = e.x + (e.direction==="up"?-2*tile/3*(1+e.label.length/2):e.direction==="down"?2*tile/3:-tile/4*e.label.length/2),
+		label_y = e.y + (e.direction==="left"?-2*tile/3:e.direction==="right"?tile:tile/6);	
+	}
+	else {
+		label_x = e.x + (e.direction==="up"?2*tile/3:e.direction==="down"?-2*tile/3*(1+e.label.length/3):-tile/4*e.label.length/2),
+		label_y = e.y + (e.direction==="left"?tile:e.direction==="right"?-2*tile/3:tile/6);
 	}
 	
-	ctx.fillText(label,label_x,label_y);
+	ctx.fillText(e.label,label_x,label_y);
 }
+
+//components to do:
+// -transistor
+// -opamp
+// -current=line
 
 function draw() {
 	ctx.clearRect(0,0,width,height);
 	// ctx.fillStyle = "#f7f7f7";
 	ctx.fillStyle = "#fff";
 	ctx.fillRect(0,0,width,height);
-
-	ictx.clearRect(0,0,660,200);
-	ictx.fillStyle = "#fff";
-	ictx.fillRect(0,0,660,200);
 
 	//draw grid
 	ctx.strokeStyle = "#ddd";
@@ -132,29 +393,24 @@ function draw() {
 	}
 	ctx.stroke();
 
+	let component_table = {
+		resistor: function(e) { drawResistor(e); },
+		capacitator: function(e) { drawCapacitator(e); },
+		inductor: function(e) { drawInductor(e); },
+		diode: function(e) { drawDiode(e); },
+		led: function(e) { drawLed(e); },
+		line: function(e) { drawLine(e); },
+		source: function(e) { drawSource(e); },
+		sine: function(e) { drawSine(e); },
+		voltmeter: function(e) { drawVoltmeter(e); },
+		ammeter: function(e) { drawAmmeter(e); }
+	}
+
 	//draw outline to clicked/draggable object
 	if (dragHandle !== undefined) {
-		
 		ctx.strokeStyle = "#345";
 		ctx.lineWidth = 7;
-		if (dragHandle.type === "resistor") {
-			drawResistor(dragHandle.x,dragHandle.y,dragHandle.direction,dragHandle.label);
-		}
-		else {
-			ctx.fillStyle = "#345";
-			let border;
-			if (dragHandle instanceof Line) {
-				border = dragHandle.horizontal?
-					{x1:dragHandle.x,y1:dragHandle.y-5,x2:dragHandle.x+dragHandle.len,y2:dragHandle.y+5}:
-					{x1:dragHandle.x-5,y1:dragHandle.y,x2:dragHandle.x+5,y2:dragHandle.y+dragHandle.len};
-			}
-			else {
-				border = dragHandle.horizontal? 
-					{x1:dragHandle.x-tile,y1:dragHandle.y-0.33*tile,x2:dragHandle.x+tile,y2:dragHandle.y+0.33*tile}:
-					{x1:dragHandle.x-0.33*tile,y1:dragHandle.y-tile,x2:dragHandle.x+0.33*tile,y2:dragHandle.y+tile};
-			}
-			ctx.fillRect(border.x1,border.y1,border.x2-border.x1,border.y2-border.y1);
-		}
+		component_table[dragHandle.type](dragHandle);
 		ctx.lineWidth = 1;
 	}
 
@@ -163,19 +419,7 @@ function draw() {
 	ctx.strokeStyle = "#000";
 	ctx.font="16px Arial";
 	elements.forEach(element => {
-		if (element.type === "capacitator")
-			drawCapacitator(element.x, element.y, element.direction, element.label, element.flipLabel);
-		else if (element.type === "resistor")
-			drawResistor(element.x, element.y, element.direction, element.label, element.flipLabel);
-		else if (element instanceof Line) {
-			ctx.beginPath();
-			ctx.moveTo(element.x,element.y);
-			if (element.horizontal)
-				ctx.lineTo(element.x+element.len,element.y);
-			else
-				ctx.lineTo(element.x,element.y+element.len);
-			ctx.stroke();
-		}
+		component_table[element.type](element);
 	});
 
 	//drawing temporary components like line and cursor
@@ -188,21 +432,20 @@ function draw() {
 		ctx.stroke();	
 	}
 
+	//drawing temporary component as cursor
 	if (cursor!==undefined) {
-		if (cursor.type === "resistor")
-			drawResistor(cursor.x,cursor.y,cursor.direction,"R");
-		else if (cursor.type === "capacitator")
-			drawCapacitator(cursor.x,cursor.y,cursor.direction,"C");
-		else if (cursor.type === "line") {
+		if (cursor.type === "line") {
 			ctx.fillStyle = "#000";
 			ctx.fillRect(cursor.x-tile-4,cursor.y-4,8,8);
 		}
+		else
+			component_table[cursor.type](cursor);
 	}
 
 	//debugging
-	if (dragHandle != undefined) {
-		debug({"cur_component":component,"x":dragHandle.x,"y":dragHandle.y,"dir":dragHandle.direction,"horizontal":dragHandle.horizontal, "label":dragHandle.flipLabel})
-	}
+	// if (dragHandle != undefined) {
+	// 	debug({"cur_component":component,"x":dragHandle.x,"y":dragHandle.y,"dir":dragHandle.direction,"horizontal":dragHandle.horizontal, "label":dragHandle.flipLabel})
+	// }
 }
 
 canvas.addEventListener("contextmenu", (event) => {
@@ -213,6 +456,7 @@ canvas.addEventListener("contextmenu", (event) => {
 	dragHandle = undefined;
 	cursor = undefined;
 	line = undefined;
+	document.getElementById("label_field").value = "";
 	draw();
 	return false;
 }, false);
@@ -296,8 +540,8 @@ canvas.addEventListener("wheel", event => {
 
 			o.horizontal = (o.direction === "left" || o.direction === "right")?true:false;
 		}
-	})	
-})
+	});
+});
 
 function onMouseMove(event) {
 	let mouse = getMouse(event);
@@ -338,6 +582,7 @@ function changeComponent(arg) {
 	component = arg;
 	cursor = undefined;
 	dragHandle = undefined;
+	document.getElementById("label_field").value = "";
 	draw();
 }
 
@@ -345,6 +590,7 @@ function del() {
 	elements.splice(elements.indexOf(dragHandle),1);
 	delete dragHandle;
 	dragHandle = undefined;
+	document.getElementById("label_field").value = "";
 	draw();
 }
 
@@ -378,8 +624,3 @@ function debug(obj) {
 		}
 	}
 }
-
-// let res1 = new Entity(tile,tile,"down","capacitator");
-// let res2 = new Entity(4*tile,5*tile,"left","capacitator");
-// elements.push(res1);
-// elements.push(res2);
