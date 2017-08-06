@@ -5,6 +5,7 @@ let canvas = document.querySelector("canvas"),
 	tile = 30,
 	component = "mark", //var indicationg which button has been pressed last time/action doing right now
 	elements = [],
+	markedElements = [],
 	offset = {}, // cursor offset
 	isDragging = false, //flag, if any object is dragged
 	dragHandle = undefined, // indicating dragged object(s)
@@ -45,7 +46,7 @@ class Line {
 		this.x = x1<=x2?x1:x2;
 		this.y = y1<=y2?y1:y2;
 		this.len = x1===x2?Math.abs(y2-y1):Math.abs(x2-x1);
-		this.horizontal = (/*x1 === x2 || */y1 === y2);
+		this.horizontal = (y1 === y2);
 		if (x1<x2)
 			this.direction = "right";
 		else if (x2<x1)
@@ -65,10 +66,6 @@ function drawResistor(e) {
 	if (e.direction === "up" || e.direction === "down") {
 		let temp = ys; ys = xs; xs = temp;
 	}
-	// if (e.direction === "left" || e.direction === "down") {
-	// 	xs = xs.map(cord => -cord);
-	// 	ys = ys.map(cord => -cord);
-	// }
 
 	ctx.beginPath();
 	ctx.moveTo(e.x+xs[0], e.y+ys[0]);
@@ -217,6 +214,10 @@ function drawSource(e) {
 
 	if (e.direction === "up" || e.direction === "down") {
 		let temp = ys; ys = xs; xs = temp;
+	}
+	if (e.direction === "left" || e.direction === "down") {
+		xs = xs.map(cord => -cord);
+		ys = ys.map(cord => -cord);
 	}
 
 	ctx.beginPath();
@@ -411,7 +412,6 @@ function drawLabel(e,x,y) {
 //components to do:
 // -transistor
 // -opamp
-// -current=line
 // -node with text/some label
 // -white and black points
 
@@ -445,16 +445,35 @@ function draw() {
 		sine: function(e) { drawSine(e); },
 		voltmeter: function(e) { drawVoltmeter(e); },
 		ammeter: function(e) { drawAmmeter(e); },
-		current: function(e) { drawCurrent(e); }
+		current: function(e) { drawCurrent(e); },
+		markmore: function() {
+			ctx.strokeStyle = "#388";
+			ctx.lineWidth = 3;
+			ctx.beginPath();
+			ctx.moveTo(dragHandle.x1,dragHandle.y1);
+			ctx.lineTo(dragHandle.x1,dragHandle.y2);
+			ctx.lineTo(dragHandle.x2,dragHandle.y2);
+			ctx.lineTo(dragHandle.x2,dragHandle.y1);
+			ctx.lineTo(dragHandle.x1,dragHandle.y1);
+			ctx.stroke();
+			ctx.lineWidth = 1;
+		}
 	}
 
 	//draw outline to clicked/draggable object
+	ctx.strokeStyle = "#345";
+	ctx.lineWidth = 7;
 	if (dragHandle !== undefined) {
-		ctx.strokeStyle = "#345";
-		ctx.lineWidth = 7;
 		component_table[dragHandle.type](dragHandle);
-		ctx.lineWidth = 1;
 	}
+	ctx.lineWidth = 1;
+
+	ctx.strokeStyle = "#383";
+	ctx.lineWidth = 7;	
+	markedElements.forEach(element => {
+		component_table[element.type](element);
+	});
+	ctx.lineWidth = 1;
 
 	//drawing elements and their labels
 	ctx.fillStyle = "#000";
@@ -498,6 +517,7 @@ canvas.addEventListener("contextmenu", (event) => {
 	dragHandle = undefined;
 	cursor = undefined;
 	line = undefined;
+	markedElements = [];
 	document.getElementById("label_field").value = "";
 	draw();
 	return false;
@@ -508,6 +528,9 @@ canvas.addEventListener("mousedown", event => {
 		let mouse = getMouse(event);
 
 		if (component === "mark") {
+
+			//if (markedElements.length!==0) //TODO
+
 			elements.forEach(element => {
 				let border;
 				if (element instanceof Line) {
@@ -526,6 +549,7 @@ canvas.addEventListener("mousedown", event => {
 					dragHandle = element;
 					canvas.removeEventListener("mousemove", tempIcon);
 					cursor = undefined
+					markedElements = [];
 					canvas.addEventListener("mousemove", onMouseMove);
 					canvas.addEventListener("mouseup", onMouseUp);
 					offset.x = mouse.x - element.x;
@@ -536,6 +560,10 @@ canvas.addEventListener("mousedown", event => {
 			});
 			if (dragHandle === undefined) {
 				console.log("dunno");
+				//add eventlistener to draw rectangle made by marking
+				dragHandle = {type:"markmore",x1:mouse.x, y1:mouse.y};
+				canvas.addEventListener("mouseup", markElements);
+				canvas.addEventListener("mousemove", markRect);
 				//here to mark more than one item
 			}
 		}
@@ -587,6 +615,60 @@ canvas.addEventListener("wheel", event => {
 	});
 });
 
+function markElements(event) {
+	let mouse = getMouse(event);
+	markedElements = [];
+	if (dragHandle.x2 < dragHandle.x1) {
+		let temp = dragHandle.x1;
+		dragHandle.x1 = dragHandle.x2;
+		dragHandle.x2 = temp;
+	}
+	if (dragHandle.y2 < dragHandle.y1) {
+		let temp = dragHandle.y1;
+		dragHandle.y1 = dragHandle.y2;
+		dragHandle.y2 = temp;
+	}
+
+	elements.forEach(element => {
+		let point1, point2;
+		if (element instanceof Line) {
+			point1 = {x:element.x, y:element.y};
+			if (element.horizontal) 
+				point2 = {x:element.x+element.len,y:element.y};
+			else
+				point2 = {x:element.x, y:element.y+element.len};
+		}
+		else {
+			if (element.horizontal) {
+				point1 = {x:element.x-tile, y:element.y};
+				point2 = {x:element.x+tile, y:element.y};
+			}
+			else {
+				point1 = {x:element.x, y:element.y-tile};
+				point2 = {x:element.x, y:element.y+tile};
+			}
+		}
+
+		if (inRect(point1,dragHandle) && inRect(point2,dragHandle)) {
+			markedElements.push(element);
+		}
+	});
+
+	dragHandle = undefined;
+	canvas.removeEventListener("mouseup", markElements);
+	canvas.removeEventListener("mousemove", markRect);
+}
+
+function inRect(point, border) {
+	return (point.x > border.x1 && point.x < border.x2 && point.y > border.y1 && point.y < border.y2)
+}
+
+function markRect(event) {
+	let mouse = getMouse(event);
+	dragHandle.x2 = mouse.x;
+	dragHandle.y2 = mouse.y;
+}
+
 function onMouseMove(event) {
 	let mouse = getMouse(event);
 	dragHandle.x = Math.floor((mouse.x+(dragHandle.horizontal?tile/2:tile/2) - offset.x)/tile)*tile;
@@ -631,15 +713,26 @@ function changeComponent(arg) {
 }
 
 function del() {
-	elements.splice(elements.indexOf(dragHandle),1);
-	delete dragHandle;
-	dragHandle = undefined;
-	document.getElementById("label_field").value = "";
+	if (markedElements.length !== 0) {
+		markedElements.forEach(element => {
+			elements.splice(elements.indexOf(element),1);
+			delete element;
+		});
+		markedElements = [];
+		document.getElementById("label_field").value = "";
+	}
+	else if (dragHandle !== undefined) {
+		elements.splice(elements.indexOf(dragHandle),1);
+		delete dragHandle;
+		dragHandle = undefined;
+		document.getElementById("label_field").value = "";
+	}
 	draw();
 }
 
 function setLabel() {
-	dragHandle.label = document.getElementById("label_field").value;
+	if (dragHandle!==undefined)
+		dragHandle.label = document.getElementById("label_field").value;
 	draw();
 }
 
