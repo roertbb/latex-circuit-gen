@@ -1,25 +1,46 @@
-let canvas = document.querySelector("canvas"),
+let canvas = document.getElementById("canvas"),
 	ctx = canvas.getContext("2d"),
 	width = canvas.width = 660,
 	height = canvas.height = 480,
 	tile = 30,
-	component = "mark", //var indicationg which button has been pressed last time/action doing right now
-	elements = [],
-	markedElements = [],
-	offset = {}, // cursor offset
-	isDragging = false, //flag, if any object is dragged
-	dragHandle = undefined, // indicating dragged object(s)
-	cursor = undefined,
-	line = undefined,
-	basic_rotate = false;
+	current = "resistor", //current component indicated by button
+	elements = [], //array of elements
+	cursor = undefined, //cursor element
+	marked = [], //array of marked elements
+	dir = "right", //indicating the rotation of component
+	dnd; //drag-and-drop helper to store mouse coordinates
+
+let componentTable = {
+		resistor: function(e) { drawResistor(e); },
+		capacitator: function(e) { drawCapacitator(e); },
+		inductor: function(e) { drawInductor(e); },
+		diode: function(e) { drawDiode(e); },
+		led: function(e) { drawLed(e); },
+		source: function(e) { drawSource(e); },
+		sine: function(e) { drawSine(e); },
+		voltmeter: function(e) { drawVoltmeter(e); },
+		ammeter: function(e) { drawAmmeter(e); },
+
+		line: function(e) { drawLine(e); },
+		current: function(e) { drawCurrent(e); },
+		
+		node: function(e) { drawNode(e); },
+		filledNode: function(e) { drawNode(e, "filled"); },
+		label: function(e) { drawNode(e, "label"); },
+
+		markmore: function(e) { drawMarkMore(e); }
+	},
+	directions = ["right","down","left","up"];
 
 class Entity {
-	constructor(x, y, direction, type) {
+	constructor(x, y, dir, type) {
 		this.x = x;
 		this.y = y;
-		this.direction = direction;
-		this.type = type;
-		this.horizontal = (direction === "left" || direction === "right")?true:false;
+		this.dx = 0;
+		this.dy = 0;
+		this.dir = dir;
+		this.type = type
+		this.horizontal = (dir === "left" || dir === "right")?true:false;
 		this.label;
 		if (type === "capacitator")
 			this.label = "C";
@@ -33,6 +54,8 @@ class Entity {
 			this.label = "V";
 		else if (type === "voltmeter" || type === "ammeter")
 			this.label = "";
+		else if (type === "node" || type === "filledNode" || type === "label") 
+			this.label = "node";
 		else
 			this.label = "dunno";
 		this.flipLabel = false;
@@ -45,6 +68,8 @@ class Line {
 		this.direction;
 		this.x = x1<=x2?x1:x2;
 		this.y = y1<=y2?y1:y2;
+		this.dx = 0;
+		this.dy = 0;
 		this.len = x1===x2?Math.abs(y2-y1):Math.abs(x2-x1);
 		this.horizontal = (y1 === y2);
 		if (x1<x2)
@@ -59,641 +84,311 @@ class Line {
 	}
 }
 
-function drawResistor(e) {
-	let xs = [-tile, -tile/2, -tile/2, 0.5*tile, 0.5*tile, -tile/2, -tile/2, 0.5*tile, tile],
-		ys = [0, 0, -0.25*tile, -0.25*tile, 0.25*tile, 0.25*tile, 0, 0, 0];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0], e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1], e.y+ys[1]);
-	ctx.lineTo(e.x+xs[2], e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3], e.y+ys[3]);
-	ctx.lineTo(e.x+xs[4], e.y+ys[4]);
-	ctx.lineTo(e.x+xs[5], e.y+ys[5]);
-	ctx.lineTo(e.x+xs[6], e.y+ys[6]);
-	ctx.moveTo(e.x+xs[7], e.y+ys[7]);
-	ctx.lineTo(e.x+xs[8], e.y+ys[8]);
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawInductor(e) {
-	let xs = [-tile,-0.66*tile,-tile/3,0,tile/3,0.66*tile,tile],
-		ys = [0,0,0,0,0,0,0],
-		angle = [Math.PI,Math.PI/4,0.75*Math.PI,Math.PI/4,0.75*Math.PI,0]
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-	
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	if (e.direction === "down" || e.direction === "left") {
-		if (e.direction === "left") {
-			angle = angle.map( a => { return a-Math.PI/2 });	
-		}
-		ctx.arc(e.x+xs[2],e.y+ys[2],tile/3,angle[0]+Math.PI/2,angle[1],true);
-		ctx.arc(e.x+xs[3],e.y+ys[3],tile/3,angle[2]+Math.PI,angle[3],true);
-		ctx.arc(e.x+xs[4],e.y+ys[4],tile/3,angle[4]+Math.PI,angle[5]+Math.PI/2,true);
-	}
-	else {
-		if (e.direction === "up") {
-			angle = angle.map( a => { return a+Math.PI/2 });
-		}
-		ctx.arc(e.x+xs[2],e.y+ys[2],tile/3,angle[0],angle[1],false);
-		ctx.arc(e.x+xs[3],e.y+ys[3],tile/3,angle[2],angle[3],false);
-		ctx.arc(e.x+xs[4],e.y+ys[4],tile/3,angle[4],angle[5],false);	
-	}
-	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
-	ctx.lineTo(e.x+xs[6],e.y+ys[6]);
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawDiode(e) {
-	let xs = [-tile,-0.33*tile,-0.33*tile,0.33*tile,-0.33*tile,-0.33*tile,0.33*tile,0.33*tile,0.33*tile,tile],
-		ys = [0,0,-0.33*tile,0,0.33*tile,0,-0.33*tile,0.33*tile,0,0];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-	if (e.direction === "left" || e.direction === "down") {
-		xs = xs.map(cord => -cord);
-		ys = ys.map(cord => -cord);
-	}
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	ctx.lineTo(e.x+xs[2],e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
-	ctx.lineTo(e.x+xs[4],e.y+ys[4]);
-	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
-	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
-	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
-	ctx.moveTo(e.x+xs[8],e.y+ys[8]);
-	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawLed(e) {
-	let xs = [-tile,-0.33*tile,-0.33*tile,0.33*tile,-0.33*tile,-0.33*tile,0.33*tile,0.33*tile,0.33*tile,tile,-tile/6,tile/6,0,tile/6,tile/6,tile/6,tile/2,tile/3,tile/2,tile/2],
-		ys = [0,0,-0.33*tile,0,0.33*tile,0,-0.33*tile,0.33*tile,0,0,-tile/2,-5*tile/6,-5*tile/6,-5*tile/6,-2*tile/3,-tile/2,-5*tile/6,-5*tile/6,-5*tile/6,-2*tile/3];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-	if (e.direction === "left" || e.direction === "down") {
-		xs = xs.map(cord => -cord);
-		ys = ys.map(cord => -cord);
-	}
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	ctx.lineTo(e.x+xs[2],e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
-	ctx.lineTo(e.x+xs[4],e.y+ys[4]);
-	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
-	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
-	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
-	ctx.moveTo(e.x+xs[8],e.y+ys[8]);
-	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
-
-	ctx.moveTo(e.x+xs[10],e.y+ys[10]);
-	ctx.lineTo(e.x+xs[11],e.y+ys[11]);
-	ctx.lineTo(e.x+xs[12],e.y+ys[12]);
-	ctx.moveTo(e.x+xs[13],e.y+ys[13]);
-	ctx.lineTo(e.x+xs[14],e.y+ys[14]);
-
-	ctx.moveTo(e.x+xs[15],e.y+ys[15]);
-	ctx.lineTo(e.x+xs[16],e.y+ys[16]);
-	ctx.lineTo(e.x+xs[17],e.y+ys[17]);
-	ctx.moveTo(e.x+xs[18],e.y+ys[18]);
-	ctx.lineTo(e.x+xs[19],e.y+ys[19]);
-
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawCapacitator(e) {
-	let xs = [-tile,-0.25*tile,-0.25*tile,-0.25*tile,0.25*tile,0.25*tile,0.25*tile,tile],
-		ys = [0,0,-0.35*tile,0.35*tile,-0.35*tile,0.35*tile,0,0];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
-	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
-	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
-	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
-	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawSource(e) {
-	let xs = [-tile,-tile/2,tile/2,tile,-tile/4,-tile/4,tile/5,tile/5,tile/12,tile/3],
-		ys = [0,0,0,0,-tile/6,tile/6,-tile/6,tile/6,0,0];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-	if (e.direction === "left" || e.direction === "down") {
-		xs = xs.map(cord => -cord);
-		ys = ys.map(cord => -cord);
-	}
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
-	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
-	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
-	ctx.moveTo(e.x+xs[6],e.y+ys[6]);
-	ctx.lineTo(e.x+xs[7],e.y+ys[7]);
-	ctx.moveTo(e.x+xs[8],e.y+ys[8]);
-	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawSine(e) {
-	let xs = [-tile,-tile/2,tile/2,tile,0,0],
-		ys = [0,0,0,0,-tile/6,tile/6];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
-	ctx.stroke();
-
-	let angle = [Math.PI,0,Math.PI,2*Math.PI];
-
-	ctx.beginPath();
-	if (e.direction === "left" || e.direction === "right") {
-		angle = angle.map( a => {	return a-Math.PI/2; });
-		ctx.arc(e.x+xs[5],e.y+ys[5],tile/6,angle[2],angle[3],false);
-		ctx.arc(e.x+xs[4],e.y+ys[4],tile/6,angle[0],angle[1],true);
-	}
-	else {
-		ctx.arc(e.x+xs[4],e.y+ys[4],tile/6,angle[0],angle[1],false);
-		ctx.arc(e.x+xs[5],e.y+ys[5],tile/6,angle[2],angle[3],true);
-	}
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawVoltmeter(e) {
-	let xs = [-tile,-tile/2,tile/2,tile,-tile/6,0,tile/6,-tile/2,tile/2,tile/3,tile/2,tile/2],
-		ys = [0,0,0,0,-tile/6,tile/6,-tile/6,tile/2,-tile/2,-tile/2,-tile/2,-tile/3];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-
-	if (e.direction === "left" || e.direction === "down") {
-		xs = xs.map(cord => -cord);
-		ys = ys.map(cord => -cord);
-	}
-	if (e.direction === "up" || e.direction === "down") 
-		ys = ys.map(cord => -cord);
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
-	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
-	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
-	ctx.lineTo(e.x+xs[6],e.y+ys[6]);
-	ctx.moveTo(e.x+xs[7],e.y+ys[7]);
-	ctx.lineTo(e.x+xs[8],e.y+ys[8]);
-	ctx.lineTo(e.x+xs[9],e.y+ys[9]);
-	ctx.moveTo(e.x+xs[10],e.y+ys[10]);
-	ctx.lineTo(e.x+xs[11],e.y+ys[11]);
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawAmmeter(e) {
-	let xs = [-tile,-tile/2,tile/2,tile,tile/6,0,-tile/6,-tile/12,tile/12,-tile/2,tile/2,tile/3,tile/2,tile/2],
-		ys = [0,0,0,0,tile/6,-tile/6,tile/6,tile/12,tile/12,tile/2,-tile/2,-tile/2,-tile/2,-tile/3];
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-
-	if (e.direction === "left" || e.direction === "down") {
-		xs = xs.map(cord => -cord);
-		ys = ys.map(cord => -cord);
-	}
-	if (e.direction === "up" || e.direction === "down") 
-		ys = ys.map(cord => -cord);
-
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[0],e.y+ys[0]);
-	ctx.lineTo(e.x+xs[1],e.y+ys[1]);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.arc(e.x,e.y,tile/2,0,Math.PI*2,false);
-	ctx.stroke();
-	ctx.beginPath();
-	ctx.moveTo(e.x+xs[2],e.y+ys[2]);
-	ctx.lineTo(e.x+xs[3],e.y+ys[3]);
-	ctx.moveTo(e.x+xs[4],e.y+ys[4]);
-	ctx.lineTo(e.x+xs[5],e.y+ys[5]);
-	ctx.lineTo(e.x+xs[6],e.y+ys[6]);
-	ctx.moveTo(e.x+xs[7],e.y+ys[7]);
-	ctx.lineTo(e.x+xs[8],e.y+ys[8]);
-	ctx.moveTo(e.x+xs[9],e.y+ys[9]);
-	ctx.lineTo(e.x+xs[10],e.y+ys[10]);
-	ctx.lineTo(e.x+xs[11],e.y+ys[11]);
-	ctx.moveTo(e.x+xs[12],e.y+ys[12]);
-	ctx.lineTo(e.x+xs[13],e.y+ys[13]);
-	ctx.stroke();
-
-	drawLabel(e,e.x,e.y);
-}
-
-function drawLine(e) {
-	ctx.beginPath();
-	ctx.moveTo(e.x,e.y);
-	if (e.horizontal)
-		ctx.lineTo(e.x+e.len,e.y);
-	else
-		ctx.lineTo(e.x,e.y+e.len);
-	ctx.stroke();
-}
-
-function drawCurrent(e) {
-	let xs = [e.len/2,e.len/2,e.len/2],
-		ys = [-tile/12,0,tile/12],
-		arrow = [-tile/12,tile/12,-tile/12]
-
-	if (e.direction === "up" || e.direction === "down") {
-		let temp = ys; ys = xs; xs = temp;
-	}
-	if (e.direction === "down" || e.direction === "left") {
-		arrow = arrow.map(cord => -cord);
-	}
-
-	ctx.beginPath();
-	ctx.moveTo(e.x,e.y);
-	if (e.horizontal)
-		ctx.lineTo(e.x+e.len,e.y);
-	else
-		ctx.lineTo(e.x,e.y+e.len);
-	ctx.moveTo(e.x+xs[0]+(e.horizontal?arrow[0]:0),e.y+ys[0]+(e.horizontal?0:arrow[0]));
-	ctx.lineTo(e.x+xs[1]+(e.horizontal?arrow[1]:0),e.y+ys[1]+(e.horizontal?0:arrow[1]));
-	ctx.lineTo(e.x+xs[2]+(e.horizontal?arrow[2]:0),e.y+ys[2]+(e.horizontal?0:arrow[2]));
-	ctx.stroke();
-
-	if (e.horizontal)
-		drawLabel(e,e.x+e.len/2,e.y);
-	else
-		drawLabel(e,e.x,e.y+e.len/2);
-}
-
-function drawLabel(e,x,y) {
-	let label_x, label_y;
-	if (e.flipLabel) {
-		label_x = x + (e.direction==="up"?-2*tile/3*(e.label.length/2):e.direction==="down"?2*tile/3:-tile/4*e.label.length/2),
-		label_y = y + (e.direction==="left"?-2*tile/3:e.direction==="right"?tile:tile/6);	
-	}
-	else {
-		label_x = x + (e.direction==="up"?2*tile/3:e.direction==="down"?-2*tile/3*(1+e.label.length/3):-tile/4*e.label.length/2),
-		label_y = y + (e.direction==="left"?tile:e.direction==="right"?-2*tile/3:tile/6);
-	}
-	
-	ctx.fillText(e.label,label_x,label_y);
-}
-
-//components to do:
-// -transistor
-// -opamp
-// -node with text/some label
-// -white and black points
-
 function draw() {
+	//clear canvas
 	ctx.clearRect(0,0,width,height);
 	// ctx.fillStyle = "#f7f7f7";
 	ctx.fillStyle = "#fff";
 	ctx.fillRect(0,0,width,height);
 
-	//draw grid
+	//draw lines
 	ctx.strokeStyle = "#ddd";
-	ctx.beginPath();
-	for (let i=tile; i<height; i+=tile) {
-		ctx.moveTo(tile,i);
-		ctx.lineTo(width-tile,i);
+	ctx.beginPath()
+	for (let i=1; i<width/tile; i++) {
+		ctx.moveTo(tile,i*tile);
+		ctx.lineTo(width-tile,i*tile);
 	}
-	for (let i=tile; i<width; i+=tile) {
-		ctx.moveTo(i,tile);
-		ctx.lineTo(i,height-tile);
+	for (let i=1; i<width/tile; i++) {
+		ctx.moveTo(i*tile,tile);
+		ctx.lineTo(i*tile,height-tile);
 	}
 	ctx.stroke();
 
-	let component_table = {
-		resistor: function(e) { drawResistor(e); },
-		capacitator: function(e) { drawCapacitator(e); },
-		inductor: function(e) { drawInductor(e); },
-		diode: function(e) { drawDiode(e); },
-		led: function(e) { drawLed(e); },
-		line: function(e) { drawLine(e); },
-		source: function(e) { drawSource(e); },
-		sine: function(e) { drawSine(e); },
-		voltmeter: function(e) { drawVoltmeter(e); },
-		ammeter: function(e) { drawAmmeter(e); },
-		current: function(e) { drawCurrent(e); },
-		markmore: function() {
-			ctx.strokeStyle = "#388";
-			ctx.lineWidth = 3;
-			ctx.beginPath();
-			ctx.moveTo(dragHandle.x1,dragHandle.y1);
-			ctx.lineTo(dragHandle.x1,dragHandle.y2);
-			ctx.lineTo(dragHandle.x2,dragHandle.y2);
-			ctx.lineTo(dragHandle.x2,dragHandle.y1);
-			ctx.lineTo(dragHandle.x1,dragHandle.y1);
-			ctx.stroke();
-			ctx.lineWidth = 1;
-		}
-	}
-
-	//draw outline to clicked/draggable object
-	ctx.strokeStyle = "#345";
-	ctx.lineWidth = 7;
-	if (dragHandle !== undefined) {
-		component_table[dragHandle.type](dragHandle);
-	}
-	ctx.lineWidth = 1;
-
-	ctx.strokeStyle = "#383";
-	ctx.lineWidth = 7;	
-	markedElements.forEach(element => {
-		component_table[element.type](element);
-	});
-	ctx.lineWidth = 1;
-
-	//drawing elements and their labels
-	ctx.fillStyle = "#000";
-	ctx.strokeStyle = "#000";
 	ctx.font="16px Arial";
-	elements.forEach(element => {
-		component_table[element.type](element);
-	});
-
-	//drawing temporary components like line and cursor
-	if (line !== undefined) {
-		ctx.strokeStyle = (component==="current"?"#388":"#000");
-		ctx.beginPath();
-		ctx.moveTo(line.x,line.y);
-		ctx.lineTo(basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y);
-		ctx.lineTo(cursor.x-tile,cursor.y);
-		ctx.stroke();
-	}
-
-	//drawing temporary component as cursor
-	if (cursor!==undefined) {
+	//draw cursor
+	ctx.fillStyle = "#353535";
+	ctx.strokeStyle = "#353535";
+	if (cursor !== undefined) {
 		if (cursor.type === "line" || cursor.type === "current") {
-			ctx.fillStyle = "#000";
-			ctx.fillRect(cursor.x-tile-4,cursor.y-4,8,8);
+			//draw dot
+			ctx.fillRect(cursor.x/*-tile*/-4,cursor.y-4,8,8);
+			if (cursor.line !== undefined) {
+				//draw lines
+				let horizontal = (dir === "left" || dir === "right");
+				ctx.beginPath();
+				ctx.moveTo(cursor.line.x,cursor.line.y);
+				ctx.lineTo(horizontal?cursor.line.x:cursor.x,horizontal?cursor.y:cursor.line.y);
+				ctx.lineTo(cursor.x,cursor.y);
+				ctx.stroke();
+			}
 		}
 		else
-			component_table[cursor.type](cursor);
+			componentTable[cursor.type](cursor);
 	}
 
-	//debugging
-	// if (dragHandle != undefined) {
-	// 	debug({"cur_component":component,"x":dragHandle.x,"y":dragHandle.y,"dir":dragHandle.direction,"horizontal":dragHandle.horizontal, "label":dragHandle.flipLabel})
-	// }
+	//draw grabbed
+	ctx.strokeStyle = "#388"
+	ctx.lineWidth = 7;
+	marked.forEach(element => {
+		//draw element
+		componentTable[element.type](element);
+	});
+
+	//draw all elements
+	ctx.strokeStyle = "#000";
+	ctx.lineWidth = 1;
+	elements.forEach(element => {
+		//drawElement
+		componentTable[element.type](element);
+	});
 }
 
-canvas.addEventListener("contextmenu", (event) => {
-	event.preventDefault();
-	if (line === undefined) {
-		component = "mark";
-	}
-	dragHandle = undefined;
-	cursor = undefined;
-	line = undefined;
-	markedElements = [];
-	document.getElementById("label_field").value = "";
-	draw();
-	return false;
-}, false);
+//--------------------------------------------------
+//--------------------------------------------------
+//--------------------------------------------------
 
-canvas.addEventListener("mousedown", event => {
+canvas.addEventListener("mousemove", cursorIcon);
+canvas.addEventListener("wheel", rotate);
+canvas.addEventListener("contextmenu", discard, false);
+canvas.addEventListener("mousedown", onMouseDown);
+
+//when
+function onMouseDown(event) {
 	if (event.button === 0) {
 		let mouse = getMouse(event);
 
-		if (component === "mark") {
+		if (current === "mark") {
+			//check if some elements are marked, if yes, make drag and drop
+			if (marked.length !== 0) {
+				let mark = false;
 
-			//if (markedElements.length!==0) //TODO
-
-			elements.forEach(element => {
-				let border;
-				if (element instanceof Line) {
-					border = element.horizontal?
-					{x1:element.x, y1:element.y-5, x2:element.x+element.len, y2:element.y+5}:
-					{x1:element.x-5, y1:element.y, x2:element.x+5, y2:element.y+element.len};
+				marked.forEach(element => {
+					let border = getBorder(element);
+					if (inRect(mouse, border)) {
+						//start drag-and-drop
+						canvas.removeEventListener("mousemove", cursorIcon);
+						cursor = undefined;
+						canvas.addEventListener("mousemove", onMouseMove);
+						canvas.addEventListener("mouseup", onMouseUp);
+						dnd = {x: Math.floor((mouse.x+tile/2)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
+						draw();
+						mark = true;
+					}
+				});
+				if (!mark) {
+					marked = [];
+					elements.forEach(element => {
+						let border = getBorder(element);
+						if (inRect(mouse,border)) {
+							marked = [element];
+						}
+					});
 				}
-				else {
-					border = element.horizontal? 
-					{x1:element.x-tile,y1:element.y-0.33*tile,x2:element.x+tile,y2:element.y+0.33*tile}:
-					{x1:element.x-0.33*tile,y1:element.y-tile,x2:element.x+0.33*tile,y2:element.y+tile};
-				}
-
-				if (mouse.x >= border.x1 && mouse.x <= border.x2 && mouse.y >= border.y1 && mouse.y <= border.y2) {
-					isDragging = true;
-					dragHandle = element;
-					canvas.removeEventListener("mousemove", tempIcon);
-					cursor = undefined
-					markedElements = [];
-					canvas.addEventListener("mousemove", onMouseMove);
-					canvas.addEventListener("mouseup", onMouseUp);
-					offset.x = mouse.x - element.x;
-					offset.y = mouse.y - element.y;
-					document.getElementById("label_field").value = dragHandle.label;
-					draw();
-				}
-			});
-			if (dragHandle === undefined) {
-				console.log("dunno");
-				//add eventlistener to draw rectangle made by marking
-				dragHandle = {type:"markmore",x1:mouse.x, y1:mouse.y};
-				canvas.addEventListener("mouseup", markElements);
-				canvas.addEventListener("mousemove", markRect);
-				//here to mark more than one item
-			}
-		}
-		else if (!isDragging && component !== "mark" && component !== "line" && component !== "current") {
-			let e = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,cursor.direction,component);
-			elements.push(e);
-			draw();
-		}
-		else if (component === "line" || component === "current") {
-			if (line === undefined) {
-				line = {x: Math.floor((mouse.x+0.5*tile)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
 			}
 			else {
-				if (cursor.x-tile === line.x || cursor.y === line.y) {
-					let l = new Line(line.x,line.y,Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,component);
+				//try mark one element
+				elements.forEach(element => {
+					let border = getBorder(element);
+					if (inRect(mouse, border)) {
+						marked = [element];
+						canvas.removeEventListener("mousemove", cursorIcon);
+						cursor = undefined;
+						canvas.addEventListener("mousemove", onMouseMove);
+						canvas.addEventListener("mouseup", onMouseUp);
+						//store mouse coordinate
+						dnd = {x: Math.floor((mouse.x+tile/2)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
+						document.getElementById("label_field").value = marked[0].label;
+						draw();
+					}
+	 			});
+				//if not start marking more elements
+				if (marked.length === 0) {
+					cursor = {type: "markmore", x1: mouse.x, y1: mouse.y/*, x2: undefined, y2: undefined*/};
+					canvas.addEventListener("mouseup", markElements);
+					canvas.addEventListener("mousemove", markRect);
+					canvas.removeEventListener("mousemove",cursorIcon);
+				}
+			}
+		}
+		else if (current !== "mark" && current !== "line" && current !== "current") {
+			//create new element
+			let e = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,dir,current);
+			elements.push(e);
+			draw();
+
+		}
+		else if (current === "line" || current === "current") {
+			//begin drawing lines - fill cursor.mouse
+			if (cursor !== undefined && cursor.line === undefined) {
+				cursor.line = {x: Math.floor((mouse.x+tile/2)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
+			}
+			else {
+			//else create line or lines if necessary
+				if (cursor.line.x === cursor.x || cursor.line.y === cursor.y) {
+					//create single line
+					let l = new Line(cursor.line.x,cursor.line.y,Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,current);
 					elements.push(l);
-					line = undefined;
+					cursor.line = undefined;
 				}
 				else {
-					let l1 = new Line(line.x,line.y,basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y, component),
-						l2 = new Line(basic_rotate?line.x:cursor.x-tile,basic_rotate?cursor.y:line.y,cursor.x-tile,cursor.y, component);
+					// create 2 lines
+					let horizontal = (dir === "left" || dir === "right")
+					let l1 = new Line(cursor.line.x,cursor.line.y,horizontal?cursor.line.x:cursor.x,horizontal?cursor.y:cursor.line.y,current),
+						l2 = new Line(horizontal?cursor.line.x:cursor.x,horizontal?cursor.y:cursor.line.y,cursor.x,cursor.y,current);
 					elements.push(l1);
 					elements.push(l2);
-					line = undefined;
+					cursor.line = undefined;
 				}
 			}
 		}
 	}
-});
+}
 
-canvas.addEventListener("mousemove", tempIcon);
-
-canvas.addEventListener("wheel", event => { 
-	basic_rotate=!basic_rotate; 
-	let obj = [dragHandle, cursor];
-	obj.forEach(o => {
-		if (o !== undefined) {
-			if (o.direction === "left") 
-				o.direction = "up";
-			else if (o.direction === "up")
-				o.direction = "right";
-			else if (o.direction === "right")
-				o.direction = "down";
-			else
-				o.direction = "left";
-
-			o.horizontal = (o.direction === "left" || o.direction === "right")?true:false;
-		}
-	});
-});
-
+//action after releasing mouse button
 function markElements(event) {
 	let mouse = getMouse(event);
-	markedElements = [];
-	if (dragHandle.x2 < dragHandle.x1) {
-		let temp = dragHandle.x1;
-		dragHandle.x1 = dragHandle.x2;
-		dragHandle.x2 = temp;
+	// marked = [];
+	if (cursor.x2 < cursor.x1) {
+		let temp = cursor.x1;
+		cursor.x1 = cursor.x2;
+		cursor.x2 = temp;
 	}
-	if (dragHandle.y2 < dragHandle.y1) {
-		let temp = dragHandle.y1;
-		dragHandle.y1 = dragHandle.y2;
-		dragHandle.y2 = temp;
+	if (cursor.y2 < cursor.y1) {
+		let temp = cursor.y1;
+		cursor.y1 = cursor.y2;
+		cursor.y2 = temp;
 	}
 
 	elements.forEach(element => {
 		let point1, point2;
 		if (element instanceof Line) {
-			point1 = {x:element.x, y:element.y};
-			if (element.horizontal) 
-				point2 = {x:element.x+element.len,y:element.y};
+			point1 = {x: element.x, y: element.y};
+			if (element.horizontal)
+				point2 = {x: element.x+element.len, y: element.y};
 			else
-				point2 = {x:element.x, y:element.y+element.len};
+				point2 = {x: element.x, y: element.y+element.len};
 		}
 		else {
 			if (element.horizontal) {
-				point1 = {x:element.x-tile, y:element.y};
-				point2 = {x:element.x+tile, y:element.y};
+				point1 = {x: element.x-tile, y: element.y};
+				point2 = {x: element.x+tile, y: element.y};
 			}
 			else {
-				point1 = {x:element.x, y:element.y-tile};
-				point2 = {x:element.x, y:element.y+tile};
+				point1 = {x: element.x, y: element.y-tile};
+				point2 = {x: element.x, y: element.y+tile};
 			}
 		}
 
-		if (inRect(point1,dragHandle) && inRect(point2,dragHandle)) {
-			markedElements.push(element);
+		if (inRect(point1,cursor) && inRect(point2,cursor)) {
+			marked.push(element);
 		}
 	});
 
-	dragHandle = undefined;
 	canvas.removeEventListener("mouseup", markElements);
 	canvas.removeEventListener("mousemove", markRect);
+	canvas.addEventListener("mousemove", cursorIcon);
 }
 
-function inRect(point, border) {
-	return (point.x > border.x1 && point.x < border.x2 && point.y > border.y1 && point.y < border.y2)
-}
-
+//drawing rect while mouse moving
 function markRect(event) {
 	let mouse = getMouse(event);
-	dragHandle.x2 = mouse.x;
-	dragHandle.y2 = mouse.y;
+	cursor.x2 = mouse.x;
+	cursor.y2 = mouse.y
 }
 
+//drag-and-drop mouse movement
 function onMouseMove(event) {
 	let mouse = getMouse(event);
-	dragHandle.x = Math.floor((mouse.x+(dragHandle.horizontal?tile/2:tile/2) - offset.x)/tile)*tile;
-	dragHandle.y = Math.floor((mouse.y+(dragHandle.horizontal?tile/2:tile/2) - offset.y)/tile)*tile;
+	//calc mouse diff and apply to objects from marked 
+	let dx = Math.floor((mouse.x+tile/2)/tile)*tile - dnd.x,
+		dy = Math.floor((mouse.y+tile/2)/tile)*tile - dnd.y;
+
+	//to change position of dx and dy
+	marked.forEach(element => {
+		element.dx = dx;
+		element.dy = dy;
+	});
+
 	draw();
 }
 
+//end drag-and-drop event 
 function onMouseUp(event) {
+	//recalc cords of every item
+	marked.forEach(element => {
+		element.x += element.dx;
+		element.y += element.dy;
+		element.dx = 0;
+		element.dy = 0;
+	})
+
 	canvas.removeEventListener("mousemove", onMouseMove);
 	canvas.removeEventListener("mouseup", onMouseUp);
-	canvas.addEventListener("mousemove", tempIcon);
-	isDragging = false;
+	canvas.addEventListener("mousemove", cursorIcon);
 	draw();
 }
 
-function tempIcon(event) {
-	let mouse = getMouse(event);
-	if (component !== "mark") {
-		cursor = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,basic_rotate?"left":"up",component)
-		if (cursor.type === "line" || cursor.type === "current") {
-			cursor.x += tile;
+//rmb click event
+function discard(event) {
+	event.preventDefault();
+	if (cursor !== undefined && cursor.line === undefined) {
+		current = "mark";
+	}
+	marked = [];
+	cursor = undefined;
+	document.getElementById("label_field").value = "";
+	draw();
+	return false;
+}
+
+//scroll event
+function rotate(event) {
+	if (cursor !== undefined)
+		cursor.dir = dir = directions[(directions.indexOf(dir)+1)%directions.length];
+	else if (marked.length === 1) {
+		dir = marked[0].dir;
+		marked[0].dir = dir = directions[(directions.indexOf(dir)+1)%directions.length];
+		marked[0].horizontal = (marked[0].dir === "left" || marked[0].dir === "right")?true:false;
+	}
+}
+
+function cursorIcon(event) {
+	if (current !== "mark") {
+		let mouse = getMouse(event);
+		if (cursor === undefined) {
+			if (current === "line" || current === "current")
+				cursor = {x: Math.floor((mouse.x+tile/2)/tile)*tile, y:Math.floor((mouse.y+tile/2)/tile)*tile, type: current, line: undefined};
+			else
+				cursor = new Entity(Math.floor((mouse.x+tile/2)/tile)*tile,Math.floor((mouse.y+tile/2)/tile)*tile,dir,current)
+		}
+		else {
+			cursor.x = Math.floor((mouse.x+tile/2)/tile)*tile;
+			cursor.y = Math.floor((mouse.y+tile/2)/tile)*tile;
 		}
 	}
 	else
 		cursor = undefined;
+}
+
+function getBorder(element) {
+	let p = tile/5;
+	if (element instanceof Line) {
+		return element.horizontal?
+		{x1: element.x, y1: element.y-p, x2: element.x+element.len, y2: element.y+p}:
+		{x1: element.x-p, y1: element.y, x2: element.x+p, y2: element.y+element.len};
+	}
+	else if (element.type === "node" || element.type === "filledNode" || element.type === "label") {
+		return {x1: element.x-p, y1: element.y-p, x2:element.x+p, y2: element.y+p};
+	}
+	else {
+		return element.horizontal?
+		{x1: element.x-tile, y1:element.y-p, x2: element.x+tile, y2: element.y+p}:
+		{x1: element.x-p, y1:element.y-tile, x2: element.x+p, y2: element.y+tile};
+	}
+}
+
+function inRect(point, border) {
+	return (point.x > border.x1 && point.x < border.x2 && point.y > border.y1 && point.y < border.y2)
 }
 
 function getMouse(event) {
@@ -704,40 +399,32 @@ function getMouse(event) {
 	}
 }
 
-function changeComponent(arg) {
-	component = arg;
+function changeComponent(comp) {
+	current = comp;
 	cursor = undefined;
-	dragHandle = undefined;
+	marked = [];
 	document.getElementById("label_field").value = "";
 	draw();
 }
 
 function del() {
-	if (markedElements.length !== 0) {
-		markedElements.forEach(element => {
-			elements.splice(elements.indexOf(element),1);
-			delete element;
-		});
-		markedElements = [];
-		document.getElementById("label_field").value = "";
-	}
-	else if (dragHandle !== undefined) {
-		elements.splice(elements.indexOf(dragHandle),1);
-		delete dragHandle;
-		dragHandle = undefined;
-		document.getElementById("label_field").value = "";
-	}
-	draw();
+	marked.forEach(element => {
+		elements.splice(elements.indexOf(element),1);
+		delete element;
+	})
+	marked = [];
+	document.getElementById("label_field").value = "";
 }
 
 function setLabel() {
-	if (dragHandle!==undefined)
-		dragHandle.label = document.getElementById("label_field").value;
+	if (marked.length === 1)
+		marked[0].label = document.getElementById("label_field").value;
 	draw();
 }
 
 function flipLabel() {
-	dragHandle.flipLabel = !dragHandle.flipLabel;
+	if (marked.length === 1)
+		marked[0].flipLabel = !marked[0].flipLabel;
 	draw();
 }
 
@@ -746,18 +433,3 @@ function update() {
 	requestAnimationFrame(update);
 }
 update();
-
-function debug(obj) {
-	ictx.fillStyle = "#000";
-	ctx.font = '14px arial';
-	let x = 10, y = 10;
-	for (o in obj) {
-		if (obj[o]!==undefined) {
-			ictx.fillText(o+":"+obj[o],x,y);
-			y+=20;
-			if (y>=90) {
-				y = 10, x+=150;
-			}
-		}
-	}
-}
