@@ -18,10 +18,9 @@
 		<input type="button" value="sine" onclick="changeComponent('sine')">
 		<input type="button" value="voltmeter" onclick="changeComponent('voltmeter')">
 		<input type="button" value="ammeter" onclick="changeComponent('ammeter')">
-		<input type="button" value="node" onclick="changeComponent('node')">
+		<!-- <input type="button" value="node" onclick="changeComponent('node')">
 		<input type="button" value="filledNode" onclick="changeComponent('filledNode')">
-		<input type="button" value="label" onclick="changeComponent('label')">
-		<!-- <input type="button" value="transistor" onclick="changeComponent('transistor')"> -->
+		<input type="button" value="label" onclick="changeComponent('label')"> -->
 	</div>
 	<canvas id="canvas"></canvas>
 	<br>
@@ -29,7 +28,18 @@
 		<input type="button" value="delete" onclick="del()">
 		<span></span>
 		<input type="text" id='label_field'/>
-		<input type="button" value="set label" onclick="setLabel()">
+		<select id="line_type" disabled="true">
+		  <option value="--">--</option>
+		  <option value="-*">-*</option>
+		  <option value="*-">*-</option>
+		  <option value="*-*">*-*</option>
+		  <option value="-o">-o</option>
+		  <option value="o-">o-</option>
+		  <option value="o-o">o-o</option>
+		  <option value="*-o">*-o</option>
+		  <option value="o-*">o-*</option>
+		</select>
+		<input type="button" value="set" onclick="setLabel()">
 		<input type="button" value="invert label" onclick="flipLabel()">
 		<span></span>
 		<input type="button" value="generate latex code" onclick="gen()">

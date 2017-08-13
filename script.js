@@ -23,10 +23,6 @@ let componentTable = {
 
 		line: function(e) { drawLine(e); },
 		current: function(e) { drawCurrent(e); },
-		
-		node: function(e) { drawNode(e); },
-		filledNode: function(e) { drawNode(e, "filled"); },
-		label: function(e) { drawNode(e, "label"); },
 
 		markmore: function(e) { drawMarkMore(e); }
 	},
@@ -65,7 +61,7 @@ class Entity {
 class Line {
 	constructor(x1,y1,x2,y2,type) {
 		this.type = type;
-		this.direction;
+		this.dir;
 		this.x = x1<=x2?x1:x2;
 		this.y = y1<=y2?y1:y2;
 		this.dx = 0;
@@ -73,28 +69,29 @@ class Line {
 		this.len = x1===x2?Math.abs(y2-y1):Math.abs(x2-x1);
 		this.horizontal = (y1 === y2);
 		if (x1<x2)
-			this.direction = "right";
+			this.dir = "right";
 		else if (x2<x1)
-			this.direction = "left";
+			this.dir = "left";
 		if (y1<y2)
-			this.direction = "up";
+			this.dir = "up";
 		else if (y2<y1)
-			this.direction = "down";
+			this.dir = "down";
 		this.label = type === "current"?"I":"";
+		this.ends = "--";
 	}
 }
 
 function draw() {
 	//clear canvas
 	ctx.clearRect(0,0,width,height);
-	// ctx.fillStyle = "#f7f7f7";
-	ctx.fillStyle = "#fff";
+	ctx.fillStyle = "#f7f7f7";
+	// ctx.fillStyle = "#fff";
 	ctx.fillRect(0,0,width,height);
 
 	//draw lines
 	ctx.strokeStyle = "#ddd";
 	ctx.beginPath()
-	for (let i=1; i<width/tile; i++) {
+	for (let i=1; i<height/tile; i++) {
 		ctx.moveTo(tile,i*tile);
 		ctx.lineTo(width-tile,i*tile);
 	}
@@ -181,8 +178,15 @@ function onMouseDown(event) {
 						let border = getBorder(element);
 						if (inRect(mouse,border)) {
 							marked = [element];
+							document.getElementById("label_field").value = marked[0].label;
+							if (marked[0] instanceof Line) 
+								document.getElementById("line_type").disabled = false;
 						}
 					});
+					if (marked.length === 0) {
+						document.getElementById("label_field").value = "" ;
+						document.getElementById("line_type").disabled = true;
+					}
 				}
 			}
 			else {
@@ -198,6 +202,8 @@ function onMouseDown(event) {
 						//store mouse coordinate
 						dnd = {x: Math.floor((mouse.x+tile/2)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
 						document.getElementById("label_field").value = marked[0].label;
+						if (marked[0] instanceof Line)
+							document.getElementById("line_type").disabled = false;
 						draw();
 					}
 	 			});
@@ -284,6 +290,12 @@ function markElements(event) {
 		}
 	});
 
+	if (marked.length === 1) {
+		document.getElementById("label_field").value = marked[0].label;
+		if (marked[0] instanceof Line)
+			document.getElementById("line_type").disabled = false;
+	}
+
 	canvas.removeEventListener("mouseup", markElements);
 	canvas.removeEventListener("mousemove", markRect);
 	canvas.addEventListener("mousemove", cursorIcon);
@@ -337,6 +349,7 @@ function discard(event) {
 	marked = [];
 	cursor = undefined;
 	document.getElementById("label_field").value = "";
+	document.getElementById("line_type").disabled = true;
 	draw();
 	return false;
 }
@@ -350,6 +363,7 @@ function rotate(event) {
 		marked[0].dir = dir = directions[(directions.indexOf(dir)+1)%directions.length];
 		marked[0].horizontal = (marked[0].dir === "left" || marked[0].dir === "right")?true:false;
 	}
+	event.preventDefault();
 }
 
 function cursorIcon(event) {
@@ -377,9 +391,6 @@ function getBorder(element) {
 		{x1: element.x, y1: element.y-p, x2: element.x+element.len, y2: element.y+p}:
 		{x1: element.x-p, y1: element.y, x2: element.x+p, y2: element.y+element.len};
 	}
-	else if (element.type === "node" || element.type === "filledNode" || element.type === "label") {
-		return {x1: element.x-p, y1: element.y-p, x2:element.x+p, y2: element.y+p};
-	}
 	else {
 		return element.horizontal?
 		{x1: element.x-tile, y1:element.y-p, x2: element.x+tile, y2: element.y+p}:
@@ -404,6 +415,7 @@ function changeComponent(comp) {
 	cursor = undefined;
 	marked = [];
 	document.getElementById("label_field").value = "";
+	document.getElementById("line_type").disabled = true;
 	draw();
 }
 
@@ -414,11 +426,17 @@ function del() {
 	})
 	marked = [];
 	document.getElementById("label_field").value = "";
+	document.getElementById("line_type").disabled = true;
 }
 
 function setLabel() {
-	if (marked.length === 1)
+	if (marked.length === 1) {
 		marked[0].label = document.getElementById("label_field").value;
+		if (marked[0] instanceof Line) {
+			let e = document.getElementById("line_type");
+			marked[0].ends = e.options[e.selectedIndex].text;
+		}
+	}
 	draw();
 }
 
@@ -433,3 +451,195 @@ function update() {
 	requestAnimationFrame(update);
 }
 update();
+
+//--------------------------------------------------
+//--------------------------------------------------
+//--------------------------------------------------
+
+function gen() {
+	let grid = [];
+	for (let i=0; i<height/tile; i++) {
+		grid[i]=[];
+		for (let j=0; j<width/tile; j++) {
+			grid[i][j] = [];
+		}
+	}
+
+	function checkNode(element) {
+		let foundNode = undefined;
+		if (element.horizontal) {
+			for (let i=element.x/tile; i<(element.x+element.len)/tile; i++) {
+				let y = element.y/tile;
+				grid[y][i].forEach( elem => {
+					if (foundNode === undefined && (elem.type === "node" || elem.type === "filledNode" || elem.type === "label"))
+						foundNode = {x: i, y: y};
+				});
+			}
+		}
+		else {
+			for (let i=element.y/tile; i<(element.y+element.len)/tile; i++) {
+				let x = element.x/tile;
+				grid[i][x].forEach( elem => {
+					if (foundNode === undefined && (elem.type === "node" || elem.type === "filledNode" || elem.type === "label"))
+						foundNode = {x: x, y: i};
+ 				});
+			}
+		}
+		console.log(foundNode);
+		return foundNode;
+	}
+
+	//fill grid array with elements and find lowest left element
+	let begin = {x: width, y: 0}
+	elements.forEach(element => {
+		let obj1, obj2;
+		if (element.type === "line" || element.type === "current") {
+			if (element.horizontal) {
+				obj1 = {x: Math.floor(element.x/tile), y: Math.floor(element.y/tile)}
+				obj2 = {x: Math.floor((element.x+element.len)/tile), y: Math.floor(element.y/tile)};
+			}
+			else {
+				obj1 = {x: Math.floor(element.x/tile), y: Math.floor(element.y/tile)};
+				obj2 = {x: Math.floor(element.x/tile), y: Math.floor((element.y+element.len)/tile)};
+			}
+		}
+		else {
+			if (element.horizontal) {
+				obj1 = {x: Math.floor((element.x-tile)/tile), y: Math.floor(element.y/tile)};
+				obj2 = {x: Math.floor((element.x+tile)/tile), y: Math.floor(element.y/tile)};
+			}
+			else {
+				obj1 = {x: Math.floor(element.x/tile), y: Math.floor((element.y-tile)/tile)};
+				obj2 = {x: Math.floor(element.x/tile), y: Math.floor((element.y+tile)/tile)};
+			}
+		}
+		grid[obj1.y][obj1.x].push(element);
+		if (obj2 !== undefined) 
+			grid[obj2.y][obj2.x].push(element);
+
+		if (obj1.x < begin.x)
+			begin.x = obj1.x;
+		if (obj1.y > begin.y)
+			begin.y = obj1.y;
+		if (obj2 !== undefined) {
+			if (obj2.x < begin.x)
+				begin.x = obj2.x;
+			if (obj2.y > begin.y)
+				begin.y = obj2.y;
+		}
+	});
+
+	//after that look through every node to resolve problem with nodes
+
+/*
+	it doesn't look that way
+	it's possible to make line 
+		---------* with () to[short, -*] ()
+		*--------- with () to[short, *-] ()
+		*--------* with () to[short, *-*] ()
+
+	node in is applied to line, so managing nodes as independent component is kind of pointless
+*/
+	
+/*
+	let l1 = new Line(element.x,element.y,node.x*tile,node.y*tile,element.type);  
+	grid[l1.y/tile][l1.x/tile].push(l1);
+	grid[l1.y/tile][(l1.x_l1.len)/tile].push(l1);
+	//add line no. 2
+	let l2 = new Line(node.x*tile,node.y*tile,(element.x+element.len),element.y,element.type);
+	grid[l2.y/tile][l2.x/tile].push(l2);
+	grid[l2.y/tile][(l2.x_l2.len)/tile].push(l2);
+
+	//delete current line
+	grid[element.x/tile][element.y/tile].splice(grid[element.x/tile][element.y/tile].indexOf(element),1);
+	grid[(element.x+element.len)/tile][element.y/tile].splice(grid[(element.x+element.len)/tile][element.y/tile].indexOf(element),1);
+*/
+
+	// //TODO further generation
+	// let str = grid.reduce( (prev,current) => {
+	// 	let line = current.reduce( (pr, cur) => {
+	// 		return pr+cur.length;
+	// 	}, "");
+	// 	return prev.concat([line]);
+	// },[]).reduce((prev,current) => {
+	// 	return prev+"\n"+current;
+	// },"");
+
+	// console.log(str);
+
+	function findElem() {
+		for (let i=0; i<height/tile; i++) {
+			for (let j=0; j<width/tile; j++) {
+				if (grid[i][j].length!==0)
+					return grid[i][j][0];
+			}
+		}
+	}
+
+	function findPoints(element) {
+		if (element instanceof Line) {
+			if (element.horizontal) {
+				return [{x: Math.floor(element.x/tile), y: Math.floor(element.y/tile)},
+						{x: Math.floor((element.x+element.len)/tile), y: Math.floor(element.y/tile)}]
+			}
+			else {
+				return [{x: Math.floor(element.x/tile), y: Math.floor(element.y/tile)},
+						{x: Math.floor(element.x/tile), y: Math.floor((element.y+element.len)/tile)}]
+			}
+		}
+		else {
+			if (element.horizontal) {
+				return [{x:Math.floor((element.x+tile)/tile), y:Math.floor(element.y/tile)},
+						{x:Math.floor((element.x-tile)/tile), y:Math.floor(element.y/tile)}];
+			}
+			else {
+				return [{x:Math.floor(element.x/tile), y:Math.floor((element.y+tile)/tile)},
+						{x:Math.floor(element.x/tile), y:Math.floor((element.y-tile)/tile)}];
+			}
+		}
+	}
+
+	function findNext(last) {
+		let search = true;
+		let elems = [];
+		while(search) {
+			let pts = findPoints(grid[last.y][last.x][0]);
+			let found = grid[last.y][last.x][0];
+			elems.push(found);
+			if (pts[1] !== undefined && pts[0].x === last.x && pts[0].y === last.y)
+				last = {x: pts[1].x, y: pts[1].y};
+			else
+				last = {x: pts[0].x, y: pts[0].y};
+			grid[pts[0].y][pts[0].x].splice(grid[pts[0].y][pts[0].x].indexOf(found),1);
+			if (pts[1] !== undefined)
+				grid[pts[1].y][pts[1].x].splice(grid[pts[1].y][pts[1].x].indexOf(found),1);
+			elems.push({x: last.x, y: last.y});
+			if (grid[last.y][last.x].length===0)
+				search = false;
+		}
+		return elems;
+	}
+
+	let found;
+	while ((found = findElem())!==undefined) {
+
+		let points = findPoints(found);
+		grid[points[0].y][points[0].x].splice(grid[points[0].y][points[0].x].indexOf(found),1);
+		if (points[1] !== undefined)
+			grid[points[1].y][points[1].x].splice(grid[points[1].y][points[1].x].indexOf(found),1);
+
+		let next = [], prev = [];
+		if (grid[points[0].y][points[0].x].length >= 1) {
+			next = findNext({x: points[0].x, y: points[0].y});
+		}
+		if (points[1] !== undefined && grid[points[1].y][points[1].x].length >= 1) {
+			prev = findNext({x: points[1].x, y: points[1].y});
+		}
+		let output;
+		if (points[1] !== undefined)
+			output = ((prev.reverse()).concat([{x: points[1].x, y: points[1].y},found,{x: points[0].x, y: points[0].y}])).concat(next);
+		else
+			output = ((prev.reverse()).concat([found,{x: points[0].x, y: points[0].y}])).concat(next);
+		console.log(output);
+	}
+}

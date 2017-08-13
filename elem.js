@@ -296,6 +296,13 @@ function drawAmmeter(e) {
 }
 
 function drawLine(e) {
+	//e.ends
+	let begin = e.ends[0],
+		end = e.ends[e.ends.length-1];
+
+	let begin_point = {x: e.dir === "left"?e.x+e.len:e.x, y: e.dir === "up"?e.y+e.len:e.y},
+		end_point = {x: e.dir === "right"?e.x+e.len:e.x, y: e.dir === "down"?e.y+e.len:e.y}
+
 	ctx.beginPath();
 	ctx.moveTo(e.x+e.dx,e.y+e.dy);
 	if (e.horizontal)
@@ -303,6 +310,33 @@ function drawLine(e) {
 	else
 		ctx.lineTo(e.x+e.dx,e.y+e.dy+e.len);
 	ctx.stroke();
+
+	if (begin === "o") {
+		ctx.beginPath();
+		ctx.arc(begin_point.x+e.dx, begin_point.y+e.dy, tile/10, 0,Math.PI*2);
+		ctx.stroke();
+	}
+	else if (begin === "*") {
+		ctx.beginPath();
+		ctx.arc(begin_point.x+e.dx, begin_point.y+e.dy, tile/10, 0,Math.PI*2);
+		ctx.fill();
+	}
+
+	if (end === "o") {
+		ctx.beginPath();
+		ctx.arc(end_point.x+e.dx, end_point.y+e.dy, tile/10, 0,Math.PI*2);
+		ctx.stroke();
+	}
+	else if (end === "*") {
+		ctx.beginPath();
+		ctx.arc(end_point.x+e.dx, end_point.y+e.dy, tile/10, 0,Math.PI*2);
+		ctx.fill();
+	}
+
+	if (e.horizontal)
+		drawLabel(e,e.x+e.dx+e.len/2,e.y+e.dy);
+	else
+		drawLabel(e,e.x+e.dx,e.y+e.dy+e.len/2);
 }
 
 function drawCurrent(e) {
@@ -334,23 +368,6 @@ function drawCurrent(e) {
 		drawLabel(e,e.x+e.dx,e.y+e.dy+e.len/2);
 }
 
-function drawNode(e, type) {
-	if (type === "label") 
-		ctx.fillStyle = "#833";
-	else
-		ctx.fillStyle = "#000";
-
-	ctx.beginPath();
-	ctx.arc(e.x+e.dx,e.y+e.dy,tile/12,0,Math.PI*2,false);
-	ctx.stroke();
-	if (type === "filled" || type === "label")
-		ctx.fill();
-
-	ctx.fillStyle = "#000";
-
-	drawLabel(e,e.x+e.dx,e.y+e.dy);
-}
-
 function drawMarkMore(e) {
 	ctx.strokeStyle = "#388";
 	ctx.lineWidth = 3;
@@ -366,6 +383,7 @@ function drawMarkMore(e) {
 
 function drawLabel(e,x,y) {
 	let label_x, label_y;
+
 	if (e.flipLabel) {
 		label_x = x + (e.dir==="up"?-2*tile/3*(1+e.label.length/3):e.dir==="down"?2*tile/3:-tile/4*e.label.length/2),
 		label_y = y + (e.dir==="left"?-2*tile/3:e.dir==="right"?tile:tile/6);	
@@ -373,6 +391,11 @@ function drawLabel(e,x,y) {
 	else {
 		label_x = x + (e.dir==="up"?2*tile/3:e.dir==="down"?-2*tile/3*(1+e.label.length/3):-tile/4*e.label.length/2),
 		label_y = y + (e.dir==="left"?tile:e.dir==="right"?-2*tile/3:tile/6);
+	}
+
+	if (e instanceof Line) {
+		label_x += (e.dir === "down")?10:(e.dir === "up")?-10:0;
+		label_y += (e.dir === "right")?10:(e.dir === "left")?-10:0;
 	}
 	
 	ctx.fillText(e.label,label_x,label_y);
