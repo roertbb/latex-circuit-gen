@@ -108,7 +108,7 @@ function draw() {
 	if (cursor !== undefined) {
 		if (cursor.type === "line" || cursor.type === "current") {
 			//draw dot
-			ctx.fillRect(cursor.x/*-tile*/-4,cursor.y-4,8,8);
+			ctx.fillRect(cursor.x-4,cursor.y-4,8,8);
 			if (cursor.line !== undefined) {
 				//draw lines
 				let horizontal = (dir === "left" || dir === "right");
@@ -149,7 +149,6 @@ canvas.addEventListener("wheel", rotate);
 canvas.addEventListener("contextmenu", discard, false);
 canvas.addEventListener("mousedown", onMouseDown);
 
-//when
 function onMouseDown(event) {
 	if (event.button === 0) {
 		let mouse = getMouse(event);
@@ -209,7 +208,7 @@ function onMouseDown(event) {
 	 			});
 				//if not start marking more elements
 				if (marked.length === 0) {
-					cursor = {type: "markmore", x1: mouse.x, y1: mouse.y/*, x2: undefined, y2: undefined*/};
+					cursor = {type: "markmore", x1: mouse.x, y1: mouse.y};
 					canvas.addEventListener("mouseup", markElements);
 					canvas.addEventListener("mousemove", markRect);
 					canvas.removeEventListener("mousemove",cursorIcon);
@@ -465,30 +464,6 @@ function gen() {
 		}
 	}
 
-	function checkNode(element) {
-		let foundNode = undefined;
-		if (element.horizontal) {
-			for (let i=element.x/tile; i<(element.x+element.len)/tile; i++) {
-				let y = element.y/tile;
-				grid[y][i].forEach( elem => {
-					if (foundNode === undefined && (elem.type === "node" || elem.type === "filledNode" || elem.type === "label"))
-						foundNode = {x: i, y: y};
-				});
-			}
-		}
-		else {
-			for (let i=element.y/tile; i<(element.y+element.len)/tile; i++) {
-				let x = element.x/tile;
-				grid[i][x].forEach( elem => {
-					if (foundNode === undefined && (elem.type === "node" || elem.type === "filledNode" || elem.type === "label"))
-						foundNode = {x: x, y: i};
- 				});
-			}
-		}
-		console.log(foundNode);
-		return foundNode;
-	}
-
 	//fill grid array with elements and find lowest left element
 	let begin = {x: width, y: 0}
 	elements.forEach(element => {
@@ -529,33 +504,6 @@ function gen() {
 		}
 	});
 
-	//after that look through every node to resolve problem with nodes
-
-/*
-	it doesn't look that way
-	it's possible to make line 
-		---------* with () to[short, -*] ()
-		*--------- with () to[short, *-] ()
-		*--------* with () to[short, *-*] ()
-
-	node in is applied to line, so managing nodes as independent component is kind of pointless
-*/
-	
-/*
-	let l1 = new Line(element.x,element.y,node.x*tile,node.y*tile,element.type);  
-	grid[l1.y/tile][l1.x/tile].push(l1);
-	grid[l1.y/tile][(l1.x_l1.len)/tile].push(l1);
-	//add line no. 2
-	let l2 = new Line(node.x*tile,node.y*tile,(element.x+element.len),element.y,element.type);
-	grid[l2.y/tile][l2.x/tile].push(l2);
-	grid[l2.y/tile][(l2.x_l2.len)/tile].push(l2);
-
-	//delete current line
-	grid[element.x/tile][element.y/tile].splice(grid[element.x/tile][element.y/tile].indexOf(element),1);
-	grid[(element.x+element.len)/tile][element.y/tile].splice(grid[(element.x+element.len)/tile][element.y/tile].indexOf(element),1);
-*/
-
-	// //TODO further generation
 	// let str = grid.reduce( (prev,current) => {
 	// 	let line = current.reduce( (pr, cur) => {
 	// 		return pr+cur.length;
