@@ -504,17 +504,6 @@ function gen() {
 		}
 	});
 
-	// let str = grid.reduce( (prev,current) => {
-	// 	let line = current.reduce( (pr, cur) => {
-	// 		return pr+cur.length;
-	// 	}, "");
-	// 	return prev.concat([line]);
-	// },[]).reduce((prev,current) => {
-	// 	return prev+"\n"+current;
-	// },"");
-
-	// console.log(str);
-
 	function findElem() {
 		for (let i=0; i<height/tile; i++) {
 			for (let j=0; j<width/tile; j++) {
@@ -577,26 +566,66 @@ function gen() {
 		grid[points[1].y][points[1].x].splice(grid[points[1].y][points[1].x].indexOf(found),1);
 
 		let next = [], prev = [];
-		if (grid[points[0].y][points[0].x].length >= 1) {
-			prev = findNext({x: points[0].x, y: points[0].y});
-		}
 		if (grid[points[1].y][points[1].x].length >= 1) {
 			next = findNext({x: points[1].x, y: points[1].y});
+		}
+		if (grid[points[0].y][points[0].x].length >= 1) {
+			prev = findNext({x: points[0].x, y: points[0].y});
 		}
 		let output = ((prev.reverse()).concat([{x: points[0].x-begin.x, y: begin.y-points[0].y},found,{x: points[1].x-begin.x, y: begin.y-points[1].y}])).concat(next);
 		result.push(output);
 	}
 
-	console.log(result);
+	function parseElement(elementArray, element) {
+		let prevElement = elementArray[elementArray.indexOf(element)-1],
+			nextElement = elementArray[elementArray.indexOf(element)+1],
+			elementDir;
+		
+		if (prevElement.x === nextElement.x)
+			elementDir = (prevElement.y<nextElement.y)?"up":"down";
+		else
+			elementDir = (prevElement.x<nextElement.x)?"right":"left";
+		
+		let labelMirrored = (elementDir===element.dir)?element.flipLabel:!element.flipLabel,
+			elementInverted = (elementDir!==element.dir)?true:false,
+			elementLabel = (element.label==="")?"":`,l${labelMirrored?"_":""}=$${element.label}$`;
 
-	let one = result[0].map(element => {
-		if (element.type === undefined)
-			return `(${element.x},${element.y})`;
-		else {
-			return element;
-			// return parseElement(result[0],element);
+		let elemMap = {
+			"resistor": "R",
+			"capacitator": "C",
+			"inductor": "L",
+			"diode": "Do",
+			"led": "leDo",
+			"source": "V",
+			"sine": "sI",
+			"voltmeter": "voltmeter",
+			"ammeter": "ammeter"
 		}
-	});
-	console.log(one);
-	// console.log("\\draw "+one.join(" ")+";");
+
+		let elemToString;
+		if (['line','current'].indexOf(element.type) !== -1) {
+			let ends = (element.ends === "--")?"":(elementInverted?","+element.ends.split('').reverse().join(""):","+element.ends); 
+			if (elementLabel !== "" && element.type === "current")
+				elementLabel = elementLabel.substr(0,1)+"i"+elementLabel.substr(2);
+			elemToString = `to[short${ends}${elementLabel}]`;
+		}
+		//invert and mirror unnecessary
+		else if (['resistor','capacitator'].indexOf(element.type) !== -1)
+			elemToString = `to[${elemMap[element.type]}${elementLabel}]`;
+		else 
+			elemToString = `to[${elemMap[element.type]}${elementLabel}${elementInverted?",invert,mirror":""}]`;
+
+		return elemToString;
+	}
+
+	result = result.map(elemArray => {
+		return "\\draw " + elemArray.map(element=> {
+			if (element.type === undefined)
+				return `(${element.x},${element.y})`;
+			else
+				return parseElement(elemArray,element);
+		}).join(" ") + ";";
+	}).join("\n\n");
+	
+	console.log(result);
 }

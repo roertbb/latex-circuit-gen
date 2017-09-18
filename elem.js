@@ -112,8 +112,9 @@ function drawLed(e) {
 
 	if (e.dir === "up" || e.dir === "down") {
 		let temp = ys; ys = xs; xs = temp;
+		xs = xs.map(cord => -cord);
 	}
-	if (e.dir === "left" || e.dir === "down") {
+	if (e.dir === "left" || e.dir === "up") {
 		xs = xs.map(cord => -cord);
 		ys = ys.map(cord => -cord);
 	}
@@ -384,11 +385,11 @@ function drawLabel(e,x,y) {
 	let label_x, label_y;
 
 	if (e.flipLabel) {
-		label_x = x + (e.dir==="up"?-2*tile/3*(1+e.label.length/3):e.dir==="down"?2*tile/3:-tile/4*e.label.length/2),
+		label_x = x + (e.dir==="down"?-2*tile/3*(1+e.label.length/3):e.dir==="up"?2*tile/3:-tile/4*e.label.length/2),
 		label_y = y + (e.dir==="left"?-2*tile/3:e.dir==="right"?tile:tile/6);	
 	}
 	else {
-		label_x = x + (e.dir==="up"?2*tile/3:e.dir==="down"?-2*tile/3*(1+e.label.length/3):-tile/4*e.label.length/2),
+		label_x = x + (e.dir==="down"?2*tile/3:e.dir==="up"?-2*tile/3*(1+e.label.length/3):-tile/4*e.label.length/2),
 		label_y = y + (e.dir==="left"?tile:e.dir==="right"?-2*tile/3:tile/6);
 	}
 
