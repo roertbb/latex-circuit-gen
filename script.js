@@ -3,7 +3,7 @@ let canvas = document.getElementById("canvas"),
 	width = canvas.width = 660,
 	height = canvas.height = 480,
 	tile = 30,
-	current = "resistor", //current component indicated by button
+	current = "mark", //current component indicated by button
 	elements = [], //array of elements
 	cursor = undefined, //cursor element
 	marked = [], //array of marked elements
@@ -554,40 +554,49 @@ function gen() {
 			let pts = findPoints(grid[last.y][last.x][0]);
 			let found = grid[last.y][last.x][0];
 			elems.push(found);
-			if (pts[1] !== undefined && pts[0].x === last.x && pts[0].y === last.y)
+			if (pts[0].x === last.x && pts[0].y === last.y)
 				last = {x: pts[1].x, y: pts[1].y};
 			else
 				last = {x: pts[0].x, y: pts[0].y};
 			grid[pts[0].y][pts[0].x].splice(grid[pts[0].y][pts[0].x].indexOf(found),1);
-			if (pts[1] !== undefined)
-				grid[pts[1].y][pts[1].x].splice(grid[pts[1].y][pts[1].x].indexOf(found),1);
-			elems.push({x: last.x, y: last.y});
+			grid[pts[1].y][pts[1].x].splice(grid[pts[1].y][pts[1].x].indexOf(found),1);
+			elems.push({x: last.x-begin.x, y: begin.y-last.y});
 			if (grid[last.y][last.x].length===0)
 				search = false;
 		}
 		return elems;
 	}
 
+	let result = [];
+
 	let found;
 	while ((found = findElem())!==undefined) {
 
 		let points = findPoints(found);
 		grid[points[0].y][points[0].x].splice(grid[points[0].y][points[0].x].indexOf(found),1);
-		if (points[1] !== undefined)
-			grid[points[1].y][points[1].x].splice(grid[points[1].y][points[1].x].indexOf(found),1);
+		grid[points[1].y][points[1].x].splice(grid[points[1].y][points[1].x].indexOf(found),1);
 
 		let next = [], prev = [];
 		if (grid[points[0].y][points[0].x].length >= 1) {
-			next = findNext({x: points[0].x, y: points[0].y});
+			prev = findNext({x: points[0].x, y: points[0].y});
 		}
-		if (points[1] !== undefined && grid[points[1].y][points[1].x].length >= 1) {
-			prev = findNext({x: points[1].x, y: points[1].y});
+		if (grid[points[1].y][points[1].x].length >= 1) {
+			next = findNext({x: points[1].x, y: points[1].y});
 		}
-		let output;
-		if (points[1] !== undefined)
-			output = ((prev.reverse()).concat([{x: points[1].x, y: points[1].y},found,{x: points[0].x, y: points[0].y}])).concat(next);
-		else
-			output = ((prev.reverse()).concat([found,{x: points[0].x, y: points[0].y}])).concat(next);
-		console.log(output);
+		let output = ((prev.reverse()).concat([{x: points[0].x-begin.x, y: begin.y-points[0].y},found,{x: points[1].x-begin.x, y: begin.y-points[1].y}])).concat(next);
+		result.push(output);
 	}
+
+	console.log(result);
+
+	let one = result[0].map(element => {
+		if (element.type === undefined)
+			return `(${element.x},${element.y})`;
+		else {
+			return element;
+			// return parseElement(result[0],element);
+		}
+	});
+	console.log(one);
+	// console.log("\\draw "+one.join(" ")+";");
 }

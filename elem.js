@@ -296,7 +296,6 @@ function drawAmmeter(e) {
 }
 
 function drawLine(e) {
-	//e.ends
 	let begin = e.ends[0],
 		end = e.ends[e.ends.length-1];
 
@@ -394,8 +393,8 @@ function drawLabel(e,x,y) {
 	}
 
 	if (e instanceof Line) {
-		label_x += (e.dir === "down")?10:(e.dir === "up")?-10:0;
-		label_y += (e.dir === "right")?10:(e.dir === "left")?-10:0;
+		label_x += ((e.flipLabel)?-1:1)*((e.dir === "down")?10:(e.dir === "up")?-10:0);
+		label_y += ((e.flipLabel)?-1:1)*((e.dir === "right")?10:(e.dir === "left")?-10:0);
 	}
 	
 	ctx.fillText(e.label,label_x,label_y);
