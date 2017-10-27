@@ -19,6 +19,7 @@ function drawResistor(e) {
 	ctx.stroke();
 
 	drawLabel(e,e.x+e.dx,e.y+e.dy);
+	if (e.ends !== undefined) drawEnds(e);
 }
 
 function drawCapacitator(e) {
@@ -297,11 +298,6 @@ function drawAmmeter(e) {
 }
 
 function drawLine(e) {
-	let begin = e.ends[0],
-		end = e.ends[e.ends.length-1];
-
-	let begin_point = {x: e.dir === "left"?e.x+e.len:e.x, y: e.dir === "up"?e.y+e.len:e.y},
-		end_point = {x: e.dir === "right"?e.x+e.len:e.x, y: e.dir === "down"?e.y+e.len:e.y}
 
 	ctx.beginPath();
 	ctx.moveTo(e.x+e.dx,e.y+e.dy);
@@ -310,6 +306,33 @@ function drawLine(e) {
 	else
 		ctx.lineTo(e.x+e.dx,e.y+e.dy+e.len);
 	ctx.stroke();
+
+	if (e.horizontal)
+		drawLabel(e,e.x+e.dx+e.len/2,e.y+e.dy);
+	else
+		drawLabel(e,e.x+e.dx,e.y+e.dy+e.len/2);
+
+	drawEnds(e);
+}
+
+function drawEnds(e) {
+	let begin = e.ends[0],
+		end = e.ends[e.ends.length-1];
+
+	let begin_point, end_point;
+	if (e.len == undefined) {
+		begin_point = {x: e.dir === "right"?e.x-tile:(e.dir === "left"?e.x+tile:e.x), y: e.dir === "down"?e.y-tile:(e.dir === "up"?e.y+tile:e.y)}; 
+		end_point = {x: e.dir === "right"?e.x+tile:(e.dir === "left"?e.x-tile:e.x), y: e.dir === "down"?e.y+tile:(e.dir === "up"?e.y-tile:e.y)};
+	}
+	else {
+		begin_point = {x: e.dir === "left"?e.x+e.len:e.x, y: e.dir === "up"?e.y+e.len:e.y};
+		end_point = {x: e.dir === "right"?e.x+e.len:e.x, y: e.dir === "down"?e.y+e.len:e.y};
+	}
+
+	// let len = (e.len===undefined)?60:e.len;
+	// //TODO - calculate points properly
+	// let begin_point = {x: e.dir === "left"?e.x+len:e.x, y: e.dir === "up"?e.y+len:e.y},
+	// 	end_point = {x: e.dir === "right"?e.x+len:e.x, y: e.dir === "down"?e.y+len:e.y}
 
 	if (begin === "o") {
 		ctx.beginPath();
@@ -332,11 +355,6 @@ function drawLine(e) {
 		ctx.arc(end_point.x+e.dx, end_point.y+e.dy, tile/10, 0,Math.PI*2);
 		ctx.fill();
 	}
-
-	if (e.horizontal)
-		drawLabel(e,e.x+e.dx+e.len/2,e.y+e.dy);
-	else
-		drawLabel(e,e.x+e.dx,e.y+e.dy+e.len/2);
 }
 
 function drawCurrent(e) {

@@ -38,6 +38,7 @@ class Entity {
 		this.type = type
 		this.horizontal = (dir === "left" || dir === "right")?true:false;
 		this.label;
+		this.ends = "--";
 		if (type === "capacitator")
 			this.label = "C";
 		else if (type === "resistor")
@@ -183,7 +184,7 @@ function onMouseDown(event) {
 						}
 					});
 					if (marked.length === 0) {
-						document.getElementById("label_field").value = "" ;
+						document.getElementById("label_field").value = "";
 						document.getElementById("line_type").disabled = true;
 					}
 				}
@@ -201,8 +202,7 @@ function onMouseDown(event) {
 						//store mouse coordinate
 						dnd = {x: Math.floor((mouse.x+tile/2)/tile)*tile, y: Math.floor((mouse.y+tile/2)/tile)*tile};
 						document.getElementById("label_field").value = marked[0].label;
-						if (marked[0] instanceof Line)
-							document.getElementById("line_type").disabled = false;
+						document.getElementById("line_type").disabled = false;
 						draw();
 					}
 	 			});
@@ -292,7 +292,7 @@ function markElements(event) {
 	if (marked.length === 1) {
 		document.getElementById("label_field").value = marked[0].label;
 		if (marked[0] instanceof Line)
-			document.getElementById("line_type").disabled = false;
+		document.getElementById("line_type").disabled = false;
 	}
 
 	canvas.removeEventListener("mouseup", markElements);
@@ -431,10 +431,10 @@ function del() {
 function setLabel() {
 	if (marked.length === 1) {
 		marked[0].label = document.getElementById("label_field").value;
-		if (marked[0] instanceof Line) {
-			let e = document.getElementById("line_type");
-			marked[0].ends = e.options[e.selectedIndex].text;
-		}
+		// if (marked[0] instanceof Line) {
+		let e = document.getElementById("line_type");
+		marked[0].ends = e.options[e.selectedIndex].text;
+		// }
 	}
 	draw();
 }
@@ -603,17 +603,18 @@ function gen() {
 		}
 
 		let elemToString;
+		let ends = (element.ends === "--")?"":(elementInverted?","+element.ends.split('').reverse().join(""):","+element.ends); 
+		
 		if (['line','current'].indexOf(element.type) !== -1) {
-			let ends = (element.ends === "--")?"":(elementInverted?","+element.ends.split('').reverse().join(""):","+element.ends); 
 			if (elementLabel !== "" && element.type === "current")
 				elementLabel = elementLabel.substr(0,1)+"i"+elementLabel.substr(2);
 			elemToString = `to[short${ends}${elementLabel}]`;
 		}
 		//invert and mirror unnecessary
 		else if (['resistor','capacitator'].indexOf(element.type) !== -1)
-			elemToString = `to[${elemMap[element.type]}${elementLabel}]`;
+			elemToString = `to[${elemMap[element.type]}${elementLabel}${ends}]`;
 		else 
-			elemToString = `to[${elemMap[element.type]}${elementLabel}${elementInverted?",invert,mirror":""}]`;
+			elemToString = `to[${elemMap[element.type]}${elementLabel}${elementInverted?",invert,mirror":""}${ends}]`;
 
 		return elemToString;
 	}
